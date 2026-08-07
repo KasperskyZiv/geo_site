@@ -51,7 +51,7 @@ Gather this context (ask if not provided):
 | **Copilot** | Bing-powered AI search | Bing index + authoritative sources |
 | **Claude** | Brave Search (when enabled) | Training data + Brave search results |
 
-For a deep dive on how each platform selects sources and what to optimize per platform, see [references/platform-ranking-factors.md](references/platform-ranking-factors.md).
+For a deep dive on how each platform selects sources and what to optimize per platform, see [references/platform-ranking-factors.md](platform-ranking-factors.md).
 
 ### Key Difference from Traditional SEO
 
@@ -165,7 +165,7 @@ Verify your robots.txt allows AI crawlers. Each AI platform has its own bot, and
 
 Check your robots.txt for `Disallow` rules targeting any of these. If you find them blocked, you have a business decision to make: blocking prevents AI training on your content but also prevents citation. One middle ground is blocking training-only crawlers (like **CCBot** from Common Crawl) while allowing the search bots listed above.
 
-See [references/platform-ranking-factors.md](references/platform-ranking-factors.md) for the full robots.txt configuration.
+See [references/platform-ranking-factors.md](platform-ranking-factors.md) for the full robots.txt configuration.
 
 ---
 
@@ -191,7 +191,7 @@ AI systems extract passages, not pages. Every key claim should work as a standal
 - **FAQ blocks** for common questions
 - **Statistic blocks** with cited sources
 
-For detailed templates for each block type, see [references/content-patterns.md](references/content-patterns.md).
+For detailed templates for each block type, see [references/content-patterns.md](content-patterns.md).
 
 **Structural rules:**
 - Lead every section with a direct answer (don't bury it)
@@ -315,7 +315,7 @@ If you don't have one yet, add an `llms.txt` that gives AI systems a quick overv
 
 **`/okf/` — Open Knowledge Format bundle (Google-backed, v0.1)**
 
-Google [introduced OKF](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing) in June 2026 — a markdown spec for representing site content as a directory of cross-linked files with YAML frontmatter, agent-readable without scraping. Built primarily for data-team catalog metadata; the site-readable-by-agents repurposing was popularized by Suganthan Mohanadasan. No confirmed AI-search ranking signal today — treat it as protocol-layer registration like early schema.org. **For the full breakdown, implementation paths (free generator, WordPress plugin, by-hand), hosting guidance, and when to skip, see [references/okf.md](references/okf.md).**
+Google [introduced OKF](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing) in June 2026 — a markdown spec for representing site content as a directory of cross-linked files with YAML frontmatter, agent-readable without scraping. Built primarily for data-team catalog metadata; the site-readable-by-agents repurposing was popularized by Suganthan Mohanadasan. No confirmed AI-search ranking signal today — treat it as protocol-layer registration like early schema.org. **For the full breakdown, implementation paths (free generator, WordPress plugin, by-hand), hosting guidance, and when to skip, see [references/okf.md](okf.md).**
 
 ### Schema Markup for AI
 
@@ -381,7 +381,7 @@ Not all content is equally citable. Prioritize these formats:
 - Content without dates or author attribution
 - PDF-only content (harder for AI to parse)
 
-**Citation ≠ recommendation.** Getting cited means your content was useful to consult; getting *recommended* — onto the buyer's actual shortlist — is governed by web-wide consensus (reviews, forums, analysts, press) and is largely independent of your own content. Self-promotional "best [category]" listicles can even backfire for emerging brands: in one 100-query B2B study, 69% of the AI Overview citations that self-promotional listicles earned came in answers that recommended competitors instead of the publishing brand. See [references/citations-vs-recommendations.md](references/citations-vs-recommendations.md) for the visibility ladder (retrieved → cited → mentioned → recommended), stage-dependent buyer's-guide strategy, what earns recommendations, and the attribution blind spot.
+**Citation ≠ recommendation.** Getting cited means your content was useful to consult; getting *recommended* — onto the buyer's actual shortlist — is governed by web-wide consensus (reviews, forums, analysts, press) and is largely independent of your own content. Self-promotional "best [category]" listicles can even backfire for emerging brands: in one 100-query B2B study, 69% of the AI Overview citations that self-promotional listicles earned came in answers that recommended competitors instead of the publishing brand. See [references/citations-vs-recommendations.md](citations-vs-recommendations.md) for the visibility ladder (retrieved → cited → mentioned → recommended), stage-dependent buyer's-guide strategy, what earns recommendations, and the attribution blind spot.
 
 ---
 
@@ -395,7 +395,7 @@ Not all content is equally citable. Prioritize these formats:
 | Brand citation rate | How often you're cited in AI answers | AI visibility tools (see below) |
 | Share of AI voice | Your citations vs. competitors | Peec AI, Otterly, ZipTie |
 | Citation sentiment | How AI describes your brand | Manual review + monitoring tools |
-| Recommendation rate | Whether you're on the shortlist, not just cited (see [citations-vs-recommendations.md](references/citations-vs-recommendations.md)) | Prompt tracking + mention framing |
+| Recommendation rate | Whether you're on the shortlist, not just cited (see [citations-vs-recommendations.md](citations-vs-recommendations.md)) | Prompt tracking + mention framing |
 | Source attribution | Which of your pages get cited | Track referral traffic from AI sources |
 
 ### AI Visibility Monitoring Tools
@@ -437,7 +437,7 @@ Google's guide calls these out explicitly — they hurt across both traditional 
 
 ## AI SEO by Content Type
 
-For tactical guidance on SaaS product pages, blog content, comparison/alternative pages, documentation, and local/ecom (Google's emphasis on Merchant Center + Business Profile), see [references/content-types.md](references/content-types.md).
+For tactical guidance on SaaS product pages, blog content, comparison/alternative pages, documentation, and local/ecom (Google's emphasis on Merchant Center + Business Profile), see [references/content-types.md](content-types.md).
 
 ---
 

@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill Graph</title>
+  <style>
+    :root {
+      --bg: #edf2f7;
+      --surface: #ffffff;
+      --panel: rgba(255,255,255,.94);
+      --ink: #172033;
+      --muted: #65748a;
+      --line: #d6dee9;
+      --line-strong: #b9c6d5;
+      --external: #c7602b;
+      --shared: #4cb7e8;
+      --local: #778494;
+      --shadow: 0 18px 50px rgba(23, 32, 51, .14);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 64px 1fr;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(250px, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      z-index: 3;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+      line-height: 1.15;
+    }
+
+    .subtitle, .generated {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .generated { text-align: right; }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 6px var(--aside-w, 390px);
+    }
+
+    .resizer {
+      cursor: col-resize;
+      background: var(--line);
+      z-index: 4;
+      transition: background .15s;
+    }
+    .resizer:hover, .resizer.dragging { background: var(--line-strong); }
+    body.resizing { cursor: col-resize; user-select: none; }
+
+    .graph-pane {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(20,112,175,.08), transparent 28%),
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: auto, 36px 36px, 36px 36px;
+      background-color: #f9fbfe;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(260px, 460px) 1fr auto;
+      gap: 10px;
+      align-items: start;
+      pointer-events: none;
+    }
+
+    .topbar > * { pointer-events: auto; }
+
+    .search {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    input {
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font: inherit;
+      color: var(--ink);
+      padding: 6px 8px;
+    }
+
+    button {
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .filters, .mode {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .filters button, .mode button {
+      background: var(--panel);
+      box-shadow: 0 6px 20px rgba(23,32,51,.08);
+    }
+
+    .filters button.off {
+      opacity: .35;
+    }
+
+    .stats-strip {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      min-width: 92px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 8px 26px rgba(23,32,51,.08);
+    }
+
+    .stat strong { display: block; font-size: 18px; line-height: 1; }
+    .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+
+    .graph-scroll {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      z-index: 1;
+    }
+    #graph {
+      display: block;
+    }
+
+    .band-label rect {
+      fill: rgba(255,255,255,.92);
+      stroke: var(--line);
+    }
+
+    .band-label text {
+      fill: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .edge {
+      fill: none;
+      stroke: #94a5b8;
+      stroke-width: 1.35;
+      opacity: .38;
+      marker-end: url(#arrow);
+    }
+
+    .edge.redirect { stroke-width: 2.15; opacity: .58; }
+    .edge.combine { stroke-dasharray: 8 6; }
+    .edge.hidden, .node.hidden { display: none; }
+    .edge.dim { opacity: .08; }
+    .edge.focus { stroke: #1b2a3b; stroke-width: 2.8; opacity: .95; }
+    .edge.incoming { stroke: #f0746a; stroke-width: 2.6; opacity: .98; marker-end: url(#arrow-in); transform: translateX(-1.5px); }
+    .edge.outgoing { stroke: #36c06e; stroke-width: 2.6; opacity: .98; marker-end: url(#arrow-out); transform: translateX(1.5px); }
+
+    .node { cursor: pointer; }
+    .node.dim { opacity: .18; }
+    .node-card {
+      fill: rgba(255,255,255,.97);
+      stroke: var(--line-strong);
+      stroke-width: 2;
+      filter: drop-shadow(0 10px 18px rgba(23,32,51,.13));
+    }
+    .node.selected .node-card {
+      stroke: #172033;
+      stroke-width: 3.2;
+    }
+    .node.nbr-in .node-card  { stroke: #f0746a; stroke-width: 3.2; fill: #fcebe9; }
+    .node.nbr-out .node-card { stroke: #36c06e; stroke-width: 3.2; fill: #ecf9f1; }
+    .node.nbr-both .node-card { stroke: #64748b; stroke-width: 3.2; fill: #eef1f5; }
+    .legend-row { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ink); margin-bottom: 7px; }
+    .legend-row:last-of-type { margin-bottom: 0; }
+    .legend .swatch { width: 18px; height: 9px; border-radius: 3px; flex: none; }
+    .legend .swatch.in { background: #f0746a; }
+    .legend .swatch.out { background: #36c06e; }
+    .legend .swatch.both { background: #64748b; }
+    .legend-note { margin-top: 9px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .node-name { fill: var(--ink); font-size: 11px; font-weight: 850; }
+    .node-meta, .node-degree { fill: var(--muted); font-size: 10.5px; font-weight: 650; }
+
+    aside {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background: var(--surface);
+      border-left: 1px solid var(--line);
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+      font-size: 13px;
+    }
+
+    .panel-body {
+      padding: 12px 13px;
+    }
+
+    .detail h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      overflow-wrap: anywhere;
+    }
+
+    .detail p, .row small {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .path {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0;
+    }
+
+    .desc-sec { margin: 9px 0; }
+    .desc-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .desc-text { font-size: 12.5px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+    .desc-summary { font-size: 13px; line-height: 1.5; color: var(--ink); margin: 4px 0 10px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip-sm {
+      font-size: 11px;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f8fafc;
+      color: var(--ink);
+    }
+    .full-skill { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .full-skill > summary {
+      cursor: pointer;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f8fafc;
+      list-style: none;
+      user-select: none;
+    }
+    .full-skill > summary::-webkit-details-marker { display: none; }
+    .full-skill > summary::before { content: "▸ "; color: var(--muted); }
+    .full-skill[open] > summary::before { content: "▾ "; }
+    .skill-body {
+      padding: 2px 13px 12px;
+      border-top: 1px solid var(--line);
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: #fff;
+      overflow-wrap: anywhere;
+    }
+    .skill-body .md-h { font-size: 12.5px; font-weight: 800; margin: 13px 0 4px; }
+    .skill-body h1.md-h { font-size: 15px; margin-top: 10px; }
+    .skill-body h2.md-h { font-size: 13px; }
+    .skill-body .md-p { margin: 7px 0; }
+    .skill-body .md-ul, .skill-body .md-ol { margin: 6px 0; padding-left: 19px; }
+    .skill-body li { margin: 3px 0; }
+    .skill-body .md-q { margin: 9px 0; padding: 6px 11px; border-left: 3px solid var(--line-strong); background: #f8fafc; color: var(--muted); border-radius: 0 6px 6px 0; }
+    .skill-body .md-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; background: #eef2f7; padding: 1px 4px; border-radius: 4px; }
+    .skill-body .md-pre { background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; overflow-x: auto; }
+    .skill-body .md-pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; white-space: pre; }
+    .skill-body .md-a { color: #1470af; text-decoration: none; }
+    .skill-body .md-a:hover { text-decoration: underline; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .row {
+      display: grid;
+      gap: 4px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .row button {
+      all: unset;
+      cursor: pointer;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .ok { color: #237b4b; }
+    .warn { color: #9a4f17; }
+
+    @media (max-width: 1080px) {
+      html, body { overflow: auto; }
+      .app { min-height: 100vh; height: auto; }
+      .workspace { grid-template-columns: 1fr; }
+      .graph-pane { height: calc(100vh - 64px); min-height: 620px; }
+      aside { border-left: 0; border-top: 1px solid var(--line); max-height: none; }
+    }
+
+    @media (max-width: 720px) {
+      html, body { overflow: hidden; }
+      .app { height: 100vh; grid-template-rows: 58px 1fr; }
+      header {
+        grid-template-columns: 1fr;
+        gap: 2px;
+        padding: 7px 14px;
+      }
+      h1 { font-size: 18px; }
+      .subtitle {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 11px;
+      }
+      .generated { display: none; }
+      .workspace {
+        min-height: 0;
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) 260px;
+      }
+      .graph-pane {
+        min-height: 0;
+      }
+      .topbar {
+        grid-template-columns: 1fr auto;
+        align-items: start;
+      }
+      .filters {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+      .band-label { display: none; }
+      .mode { justify-content: flex-end; }
+      .stats-strip { display: none; }
+      aside {
+        min-height: 0;
+        max-height: none;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Skill Graph</h1>
+        <div class="subtitle">Search, verify, and inspect the skill graph. Nodes are generated statically; controls enhance the view.</div>
+      </div>
+      <div class="generated">Generated 2026-08-07T13:28:02+03:00<br>7 skills · 13 edges · 8 issues</div>
+    </header>
+    <main class="workspace">
+      <section class="graph-pane">
+        <div class="topbar">
+          <div class="search">
+            <input id="search" type="search" placeholder="Search skills, triggers, edges">
+            <button id="clearSearch" type="button">Clear</button>
+          </div>
+          <div class="filters" id="filters"></div>
+          <div class="mode">
+            <button id="fitAll" type="button">Reset view</button>
+          </div>
+        </div>
+        <div class="stats-strip" id="stats"></div>
+        <div class="graph-scroll">
+        <svg id="graph" width="2310" height="700" viewBox="0 0 2310 700" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Skill graph">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#172033"></path>
+            </marker>
+            <marker id="arrow-in" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f0746a"></path>
+            </marker>
+            <marker id="arrow-out" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#36c06e"></path>
+            </marker>
+          </defs>
+          <g class="edges"><path class="edge redirect" data-source="add-a-lib" data-target="add-a-service" data-relation="redirect" d="M 322.0 146.0 L 357.0 146.0 L 357.0 146.0 L 392.0 146.0"></path>
+<path class="edge reference" data-source="add-a-lib" data-target="design-a-schema" data-relation="reference" d="M 322.0 146.0 L 679.0 146.0 L 679.0 146.0 L 1036.0 146.0"></path>
+<path class="edge redirect" data-source="add-a-service" data-target="add-a-lib" data-relation="redirect" d="M 392.0 146.0 L 357.0 146.0 L 357.0 146.0 L 322.0 146.0"></path>
+<path class="edge reference" data-source="add-a-service" data-target="design-a-schema" data-relation="reference" d="M 644.0 146.0 L 840.0 146.0 L 840.0 146.0 L 1036.0 146.0"></path>
+<path class="edge reference" data-source="add-a-service" data-target="wire-a-new-payment-provider" data-relation="reference" d="M 644.0 146.0 L 1323.0 146.0 L 1323.0 146.0 L 2002.0 146.0"></path>
+<path class="edge redirect" data-source="design-a-schema" data-target="optimize-a-query" data-relation="redirect" d="M 1288.0 146.0 L 1323.0 146.0 L 1323.0 146.0 L 1358.0 146.0"></path>
+<path class="edge redirect" data-source="design-a-schema" data-target="run-lean-on-neon" data-relation="redirect" d="M 1288.0 146.0 L 1484.0 146.0 L 1484.0 146.0 L 1680.0 146.0"></path>
+<path class="edge redirect" data-source="optimize-a-query" data-target="design-a-schema" data-relation="redirect" d="M 1358.0 146.0 L 1323.0 146.0 L 1323.0 146.0 L 1288.0 146.0"></path>
+<path class="edge redirect" data-source="optimize-a-query" data-target="run-lean-on-neon" data-relation="redirect" d="M 1610.0 146.0 L 1645.0 146.0 L 1645.0 146.0 L 1680.0 146.0"></path>
+<path class="edge redirect" data-source="run-lean-on-neon" data-target="design-a-schema" data-relation="redirect" d="M 1680.0 146.0 L 1484.0 146.0 L 1484.0 146.0 L 1288.0 146.0"></path>
+<path class="edge redirect" data-source="run-lean-on-neon" data-target="optimize-a-query" data-relation="redirect" d="M 1680.0 146.0 L 1645.0 146.0 L 1645.0 146.0 L 1610.0 146.0"></path>
+<path class="edge redirect" data-source="wire-a-new-payment-provider" data-target="add-a-service" data-relation="redirect" d="M 2002.0 146.0 L 1323.0 146.0 L 1323.0 146.0 L 644.0 146.0"></path>
+<path class="edge reference" data-source="wire-a-new-payment-provider" data-target="design-a-schema" data-relation="reference" d="M 2002.0 146.0 L 1645.0 146.0 L 1645.0 146.0 L 1288.0 146.0"></path></g>
+          <g class="nodes"><g class="node" data-name="add-a-lib" data-namespace="add-a-lib" transform="translate(70, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">add-a-lib</text>
+      <text class="node-meta" x="18" y="42">add-a-lib · 84 lines</text>
+      <text class="node-degree" x="194" y="42">1 in / 2 out</text>
+    </g>
+<g class="node" data-name="add-a-service" data-namespace="add-a-service" transform="translate(392, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">add-a-service</text>
+      <text class="node-meta" x="18" y="42">add-a-service · 98 lines</text>
+      <text class="node-degree" x="194" y="42">2 in / 3 out</text>
+    </g>
+<g class="node" data-name="ai-seo" data-namespace="ai-seo" transform="translate(714, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">ai-seo</text>
+      <text class="node-meta" x="18" y="42">ai-seo · 42 lines</text>
+      <text class="node-degree" x="194" y="42">0 in / 0 out</text>
+    </g>
+<g class="node" data-name="design-a-schema" data-namespace="design-a-schema" transform="translate(1036, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">design-a-schema</text>
+      <text class="node-meta" x="18" y="42">design-a-schema · 87 lines</text>
+      <text class="node-degree" x="194" y="42">5 in / 2 out</text>
+    </g>
+<g class="node" data-name="optimize-a-query" data-namespace="optimize-a-query" transform="translate(1358, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">optimize-a-query</text>
+      <text class="node-meta" x="18" y="42">optimize-a-query · 92 lines</text>
+      <text class="node-degree" x="194" y="42">2 in / 2 out</text>
+    </g>
+<g class="node" data-name="run-lean-on-neon" data-namespace="run-lean-on-neon" transform="translate(1680, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">run-lean-on-neon</text>
+      <text class="node-meta" x="18" y="42">run-lean-on-neon · 86 lines</text>
+      <text class="node-degree" x="194" y="42">2 in / 2 out</text>
+    </g>
+<g class="node" data-name="wire-a-new-payment-provider" data-namespace="wire-a-new-payment-provider" transform="translate(2002, 116)">
+      <rect class="node-card" width="252" height="60" rx="12"></rect>
+      <rect class="node-accent" x="0" y="11" width="6" height="38" rx="3" fill="#778494"></rect>
+      <text class="node-name" x="18" y="23">wire-a-new-payment-provider</text>
+      <text class="node-meta" x="18" y="42">wire-a-new-payment-provider · 97 lines</text>
+      <text class="node-degree" x="194" y="42">1 in / 2 out</text>
+    </g></g>
+          <g class="band-label" transform="translate(70, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">add-a-lib · 1</text>
+    </g>
+<g class="band-label" transform="translate(392, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">add-a-service · 1</text>
+    </g>
+<g class="band-label" transform="translate(714, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">ai-seo · 1</text>
+    </g>
+<g class="band-label" transform="translate(1036, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">design-a-schema · 1</text>
+    </g>
+<g class="band-label" transform="translate(1358, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">optimize-a-query · 1</text>
+    </g>
+<g class="band-label" transform="translate(1680, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">run-lean-on-neon · 1</text>
+    </g>
+<g class="band-label" transform="translate(2002, 62)">
+      <rect width="252" height="34" rx="10"></rect>
+      <circle cx="16" cy="17" r="5" fill="#778494"></circle>
+      <text x="29" y="21">wire-a-new-payment-provider · 1</text>
+    </g>
+        </svg>
+        </div>
+      </section>
+      <div class="resizer" id="resizer" title="Drag to resize"></div>
+      <aside>
+        <section class="panel">
+          <h2>Selected Skill</h2>
+          <div class="panel-body detail" id="detail"></div>
+        </section>
+        <section class="panel">
+          <h2>Legend</h2>
+          <div class="panel-body legend">
+            <div class="legend-row"><span class="swatch in"></span> Incoming &mdash; skills that link <em>to</em> the selected one</div>
+            <div class="legend-row"><span class="swatch out"></span> Outgoing &mdash; skills the selected one links <em>to</em></div>
+            <div class="legend-row"><span class="swatch both"></span> Both directions</div>
+            <div class="legend-note">Select a skill to highlight its connections. Lines and arrowheads are colored by direction; clearing the selection resets them.</div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Graph Health</h2>
+          <div class="panel-body list" id="health"></div>
+        </section>
+        <section class="panel">
+          <h2>Visible Skills</h2>
+          <div class="panel-body list" id="skillList"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+  <script type="application/json" id="skill-data">{
+  "generated_at": "2026-08-07T13:28:02+03:00",
+  "skills": [
+    {
+      "name": "add-a-lib",
+      "namespace": "add-a-lib",
+      "service": "add-a-lib",
+      "path": "add-a-lib/SKILL.md",
+      "title": "Add a lib",
+      "description": "[Scope: builders-stack monorepo — scaffolding a shared libs/ package] Scaffold a new shared library under libs/ (package @geo/<name>): package.json, tsconfig extending the root base, the one-public-door src/index.ts barrel, and wiring it into a consumer without breaking the no-upward-import rule. A libs/* package is shared code that is never served — other packages consume it, it consumes nobody upward. Use for: extracting a util, type, component, or client needed by 2+ apps/services into a single source of truth consumed by package name; creating a new @geo/* lib; deciding whether code belongs in a lib. Not for: anything with its own URL, port, or deploy (use add-a-service), distributables shipped to third parties — npm SDKs, embed widgets, CLIs (packages/*, recipe in docs/packages.md), code used in exactly one place (leave it there — a lib for one consumer is premature, YAGNI). Activate: \"add a lib\", \"new shared library\", \"extract this into libs\", \"share this between apps\", \"new @geo package\", \"where should this shared code live\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 84,
+      "body": "\n# Add a lib\n\nA `libs/*` package is **shared code that is never served** — other packages consume it, it consumes nobody upward. Reach for this when the same helper/type/component is about to exist in two places.\n\n## Critical Rules\n\n- **No upward import:** the lib must not import from `apps/` or `services/`. If it needs to, the boundary is wrong — the caller should pass the dependency in.\n- **One public door:** anything not exported from `src/index.ts` is private. Don't let consumers reach into internals — consume by package name only, never a deep path.\n- **No Tiltfile change** — libs aren't served, so they get no Tilt resource.\n- **Name it a role, not a feature** (`ui`, `db`, `auth`, `ai`, `analytics`).\n- **2+ consumers or it isn't a lib** — used in exactly one place stays in that place.\n\n## Core Instructions\n\n1. **Pick the name.** `libs/<name>`, package `@geo/<name>`. Keep it a role, not a feature.\n\n2. **Create the folder + files:**\n\n   ```\n   libs/<name>/\n   ├── package.json\n   ├── tsconfig.json\n   └── src/\n       └── index.ts        # the ONE public door\n   ```\n\n3. **`package.json`** — name it `@geo/<name>`, point exports at the barrel:\n\n   ```json\n   {\n     \"name\": \"@geo/<name>\",\n     \"private\": true,\n     \"type\": \"module\",\n     \"exports\": { \".\": \"./src/index.ts\" },\n     \"scripts\": { \"typecheck\": \"tsc --noEmit\" }\n   }\n   ```\n\n4. **`tsconfig.json`** — extend the root base, never fork options:\n\n   ```json\n   { \"extends\": \"../../tsconfig.base.json\", \"include\": [\"src\"] }\n   ```\n\n5. **`src/index.ts`** — this is the **only** thing consumers may import. Re-export the public surface; keep everything else internal:\n\n   ```ts\n   export { thing } from \"./thing\";\n   export type { ThingOptions } from \"./thing\";\n   ```\n\n6. **Install so the workspace links it:** `bun install` (root). The `@geo/<name>` name now resolves across the workspace.\n\n7. **Consume it** from an app/service by **package name only**:\n\n   ```ts\n   import { thing } from \"@geo/<name>\"; // ✅\n   import { thing } from \"@geo/<name>/src/internal/thing\"; // ❌ deep import — forbidden\n   ```\n\n8. **Verify:** `bun run typecheck` passes, and the consumer imports by package name only. Done.\n\n## Examples\n\n- User: \"The date-formatting helper in apps/web is now needed by services/api too.\"\n  Output: Extract into `libs/` (2+ consumers) — but check `@geo/ui`/existing libs first; if none fits, scaffold per the steps and switch both consumers to the package-name import.\n- User: \"Make a lib for the invoice-PDF feature only the api uses.\"\n  Output: Decline — one consumer, leave it inside `services/api` organized by feature; revisit when a second consumer appears.\n\n## Boundaries\n\n- In scope: creating `libs/*` packages, the barrel/exports contract, wiring consumers.\n- Out of scope: served roles (add-a-service), third-party distributables (`packages/*`, docs/packages.md), DB schema work inside `libs/db` (design-a-schema).\n- When unclear: default to NOT creating the lib until the second consumer is real.\n"
+    },
+    {
+      "name": "add-a-service",
+      "namespace": "add-a-service",
+      "service": "add-a-service",
+      "path": "add-a-service/SKILL.md",
+      "title": "Add a service",
+      "description": "[Scope: builders-stack monorepo — scaffolding a served role under services/] Scaffold a new service (package @geo/<name>): the Hono entrypoint reading PORT from env, config from env, wiring into .devops/Tiltfile as a portless resource, Dockerfile under infra/, and .env.example entries. A services/* package is anything with a URL or its own deploy — HTTP server, webhook receiver, or background worker (no URL, still its own process). Use for: a new HTTP endpoint group that deserves its own process/deploy, a webhook receiver, a background consumer (queue worker, cron) — which skips Portless and /health but is still a Tilt resource. Not for: shared logic with no runtime of its own (use add-a-lib), user-facing surfaces (apps/*), third-party distributables (packages/*, docs/packages.md). Activate: \"add a service\", \"new API service\", \"new webhook receiver\", \"new background worker\", \"needs its own URL/deploy\", \"wire it into Tilt\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 98,
+      "body": "\n# Add a service\n\nA `services/*` package is **anything with a URL or its own deploy** — an HTTP server, a webhook receiver, or a background worker (which has no URL but still runs as its own process). Use this when a new surface needs to run independently.\n\n## Critical Rules\n\n- **No pinned port.** Served roles run behind Portless at `<name>.stack.localhost:1355`; Portless injects a random `PORT` — always read `process.env.PORT`. See `docs/portless.md`.\n- **Persistence via `@geo/db` only; payments via `@geo/payment` only.** Never import another service's internals — talk over HTTP.\n- **Organize by feature, not by layer** (`billing/`, not `controllers/`).\n- **The Tiltfile wiring is required, not optional** — a service that isn't a Tilt resource doesn't exist in the dev runtime.\n- **Every new env var lands in `.env.example`** with a safe local default.\n\n## Core Instructions\n\n1. **Name it.** `services/<name>`, package `@geo/<name>`.\n\n2. **Files:**\n\n   ```\n   services/<name>/\n   ├── package.json\n   ├── tsconfig.json\n   └── src/\n       ├── index.ts        # entrypoint: start the server / worker\n       └── <feature>/      # organize BY FEATURE, not by layer\n   ```\n\n3. **`package.json`** — a `dev` script Tilt will call:\n\n   ```json\n   {\n     \"name\": \"@geo/<name>\",\n     \"private\": true,\n     \"type\": \"module\",\n     \"scripts\": {\n       \"dev\": \"bun --hot src/index.ts\",\n       \"start\": \"bun src/index.ts\",\n       \"typecheck\": \"tsc --noEmit\"\n     }\n   }\n   ```\n\n4. **`tsconfig.json`:** `{ \"extends\": \"../../tsconfig.base.json\", \"include\": [\"src\"] }`\n\n5. **`src/index.ts`** — Hono for HTTP; read the port from `process.env.PORT` (Portless injects it — never hardcode). Always expose `/health`:\n\n   ```ts\n   import { Hono } from \"hono\";\n   const app = new Hono();\n   app.get(\"/health\", (c) => c.json({ ok: true }));\n   const port = Number(process.env.PORT ?? 3003); // fallback only for standalone runs\n   export default { port, fetch: app.fetch };\n   ```\n\n   For a **background worker** there's no server — just start the consumer loop and log readiness. No `/health`, no port (no Portless wrapper either — see ai-worker in the Tiltfile).\n\n6. **Persistence via `@geo/db` only.** Payments via `@geo/payment` only. Never import another service's internals — talk over HTTP.\n\n7. **Wire it into `.devops/Tiltfile`** (the runtime manifest — this is required, not optional). Wrap served roles with the `portless_cmd` helper so they get a stable named URL; a background worker skips Portless:\n\n   ```python\n   # served role — gets <name>.stack.localhost:1355 via portless\n   local_resource('<name>',\n     serve_cmd='cd ' + REPO_ROOT + ' && ' + ENV_LOCAL + portless_cmd(\n       '<name>.stack ' + BUN + ' --filter @geo/<name> dev',\n       health_url=PORTLESS_PROXY.format('<name>') + '/health'),\n     links=[PORTLESS_PROXY.format('<name>') + '/health'],\n     labels=['services'])\n   ```\n\n8. **Add a Dockerfile** at `infra/<name>.Dockerfile` (copy the pattern from `infra/api.Dockerfile`). If it needs to run in compose/k8s, add it there too.\n\n9. **Add its env vars** to `.env.example` with safe local defaults.\n\n10. **Verify:** `./tilt_up.sh` shows the new resource green in the dashboard (`localhost:10380`); `curl http://<name>.stack.localhost:1355/health` returns `{ \"ok\": true }` (skip for a worker — check its log line instead). `bun run typecheck` passes.\n\n## Examples\n\n- User: \"We need to receive Stripe webhooks.\"\n  Output: New service (own URL, independent deploy) — scaffold per the steps, `/health` + feature folder `webhooks/`, portless-wrapped Tilt resource, secrets to `.env.example`; signature verification per wire-a-new-payment-provider.\n- User: \"Add a nightly job that summarizes usage.\"\n  Output: Background worker — same scaffold minus Hono//health/Portless; a plain Tilt `local_resource` like ai-worker; persistence through `@geo/db`.\n\n## Boundaries\n\n- In scope: services/* scaffolding, Tiltfile + Dockerfile + env wiring, HTTP/worker entrypoints.\n- Out of scope: shared logic (add-a-lib), DB schema (design-a-schema), payment adapter internals (wire-a-new-payment-provider).\n- When unclear: if it has no URL and no independent deploy need, it's probably a lib, not a service.\n"
+    },
+    {
+      "name": "ai-seo",
+      "namespace": "ai-seo",
+      "service": "ai-seo",
+      "path": "ai-seo/SKILL.md",
+      "title": "AI SEO (vendored — lean activator)",
+      "description": "[Scope: geo_site content authoring — making site content citable by AI answers; vendored upstream, see NOTICE.md] AI search optimization authoring guidance: getting content cited by Google AI Overviews, ChatGPT, Perplexity, Claude, Gemini, and Copilot — extractable answer blocks, authority/provenance signals, third-party presence, machine-readable files (llms.txt, /pricing.md, OKF), agentic-experience readiness, and per-platform tactics. Complements the enforced check:seo gate: the gate owns metadata/JSON-LD/SSR plumbing via @geo/seo; this skill owns authoring judgment the gate can't enforce. Use for: writing or reviewing geo_site content for AI-answer citability, \"how do we show up in AI answers\", answer-block/FAQ/comparison structure, llms.txt / pricing.md / OKF decisions, AI-crawler robots.txt policy, monitoring AI visibility. Not for: page metadata, JSON-LD, robots/sitemap mechanics (use @geo/seo + the enforced check:seo gate — don't hand-roll), chunking content \"for AI\" or scaled AI-bait (explicitly forbidden by the repo's SEO/GEO laws in CLAUDE.md, grounded in Google's guide). Activate: \"AI SEO\", \"AEO\", \"GEO\", \"LLMO\", \"get cited by AI\", \"AI Overviews\", \"optimize for ChatGPT/Perplexity\", \"llms.txt\", \"OKF\", \"AI visibility\", \"answer engine\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 42,
+      "body": "\n# AI SEO (vendored — lean activator)\n\nMake content discoverable, extractable, and citable by AI systems. The full vendored playbook lives in [references/full-reference.md](references/full-reference.md) — read the section you need, not the whole file.\n\n## Critical Rules\n\n- **Provenance:** this skill is vendored from coreyhaines31/marketingskills (MIT, pinned — see [NOTICE.md](NOTICE.md)); re-vet on any upstream bump.\n- **The repo's SEO/GEO laws in CLAUDE.md override anything here.** Never chunk content \"for AI\", never write separate AI variants (scaled-content abuse risk), never hand-roll metadata/JSON-LD — `@geo/seo` is the one door and `check:seo` enforces it. Gate = plumbing; this skill = content. They compose.\n- **Treat the granular statistics in the full reference as upstream's claims, not verified facts.** Direction (provenance helps, structure helps, third-party presence matters) is solid; exact percentages (\"+40%\", \"45% of searches\", per-platform boost tables) are not independently verified — don't republish them as facts on the site or to clients.\n- **Write for people, organize for clarity** — that satisfies Google (people-first, E-E-A-T) and the extractable-structure engines (ChatGPT, Claude, Perplexity) at once.\n\n## Core Instructions\n\n1. **Gather context first** — product-marketing context file if present, key queries, current AI visibility, competitors cited (full-reference §Before Starting).\n2. **Structure — make it extractable:** lead sections with the direct answer; definition/step/comparison/FAQ/statistic blocks ([references/content-patterns.md](references/content-patterns.md)); headings that match query phrasing; tables for comparisons.\n3. **Authority — make it citable:** cited sources, dated statistics, named expert attribution, freshness signals, E-E-A-T (full-reference §Pillar 2).\n4. **Presence — be where AI looks:** third-party sources (Wikipedia, Reddit, review sites, YouTube) often out-cite your own domain; citation ≠ recommendation — see [references/citations-vs-recommendations.md](references/citations-vs-recommendations.md) for the ladder and the self-promo listicle risk.\n5. **Machine-readable files:** llms.txt, `/pricing.md`, and the OKF bundle ([references/okf.md](references/okf.md) — no engine reads OKF today; forward bet only). For this repo, `@geo/seo`'s `aiCrawlerRules()` already handles robots.\n6. **Per-platform tuning and monitoring:** [references/platform-ranking-factors.md](references/platform-ranking-factors.md), full-reference §Monitoring; check content types against [references/content-types.md](references/content-types.md).\n\n## Examples\n\n- User: \"Write the landing FAQ so AI answers can quote it.\"\n  Output: Self-contained Q&A blocks, direct answer first, one idea per block; FAQ JSON-LD comes from `@geo/seo`'s `faqJsonLd` — never inline scripts.\n- User: \"Should we ship llms.txt and an OKF bundle?\"\n  Output: llms.txt yes (kept for non-Google engines; Google ignores it — say so); OKF as a cheap forward bet per references/okf.md, framed honestly: no ranking signal today.\n\n## Boundaries\n\n- In scope: content authoring/review for AI citability, machine-readable file decisions, AI visibility monitoring guidance.\n- Out of scope: metadata/JSON-LD/robots/sitemap implementation (`@geo/seo` + the enforced gate), classic-SEO tech audits.\n- When unclear: default to \"write for people, organize for clarity\" — it satisfies both camps.\n"
+    },
+    {
+      "name": "design-a-schema",
+      "namespace": "design-a-schema",
+      "service": "design-a-schema",
+      "path": "design-a-schema/SKILL.md",
+      "title": "Design a schema",
+      "description": "[Scope: builders-stack monorepo — data modeling in libs/db with Drizzle] Model a new table (or reshape an existing one) in libs/db: normalize by default (3NF), constrain at the database (NOT NULL, FKs with explicit onDelete, unique, check), and index deliberately — FKs you join/filter on, composite order right, no speculative indexes. Ships only as a reviewed Drizzle migration; enforces \"Drizzle is the only DB layer\". Use for: adding a table or column to libs/db/src/schema.ts, choosing keys/foreign keys/uniqueness, index strategy, a query that is slow because the schema or its indexes are wrong. Not for: diagnosing a slow query from its EXPLAIN plan or ORM N+1 (use optimize-a-query — pair with this skill when the fix is an index), Neon connection/compute/session strategy (use run-lean-on-neon), hand-written SQL migrations (forbidden — Drizzle only). Activate: \"add a table\", \"add a column\", \"design the schema\", \"which indexes\", \"foreign key setup\", \"migration for\", \"normalize this data\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 87,
+      "body": "\n# Design a schema\n\nGet the data model right before the app is built on top of it — a bad schema is the most expensive thing to change later, and on Neon's free tier it's also what quietly eats your 0.5 GB and your compute. Normalize first, constrain always, index on purpose.\n\n## Critical Rules\n\n- **Drizzle is the only DB layer.** Schema is only real once it's a reviewed Drizzle migration — never hand-write SQL.\n- **Default to 3NF.** One fact in one place; denormalize only deliberately, with a comment saying why (a measured hot read path, a reporting rollup). Never \"just in case.\"\n- **Constrain at the database, not just the app** — app validation can be bypassed, a bad migration can't.\n- **Postgres does NOT auto-index foreign keys** — index every FK you `JOIN` or filter on.\n- **No speculative indexes.** Every index slows writes and costs storage against the 0.5 GB free cap (see [run-lean-on-neon](../run-lean-on-neon/SKILL.md)). Index what a real query needs; drop indexes nothing uses.\n\n## Core Instructions\n\n### Normalize first (then denormalize with a reason)\n\n- A value that can be derived or looked up should not be copied into another row — copies drift (update anomalies).\n- **One row = one entity.** Repeating groups (`tag1`, `tag2`, `tag3`) become a child table with a FK.\n\n### Constrain at the database\n\nThe DB is the last line of integrity:\n\n- `NOT NULL` on everything that is logically required.\n- **Foreign keys** for every real relationship, with an explicit `onDelete` (`cascade` for owned children, `restrict`/`set null` otherwise). See `session`/`account` in `auth-schema.ts` — `onDelete: \"cascade\"` on `user.id`.\n- `unique` on natural keys (email, slug). `check` constraints for enums/ranges Drizzle can express.\n\n### Index deliberately — the part everyone gets wrong\n\n- A missing FK index is the classic \"fine in dev, dies under load\" bug.\n- **Composite index column order matters:** equality-filtered column first, range/sort column second. An index on `(user_id, created_at)` serves `WHERE user_id = ? ORDER BY created_at` — the reverse order does not.\n- **Partial indexes** for queries that always filter (`WHERE deleted_at IS NULL`) — smaller, cheaper.\n\nIn Drizzle, declare indexes in the table definition so they land in a migration:\n\n```ts\nexport const posts = pgTable(\n  \"posts\",\n  {\n    id: text(\"id\").primaryKey(),\n    authorId: text(\"author_id\")\n      .notNull()\n      .references(() => user.id, { onDelete: \"cascade\" }),\n    createdAt: timestamp(\"created_at\").notNull().defaultNow(),\n  },\n  (t) => [index(\"posts_author_created_idx\").on(t.authorId, t.createdAt)], // FK + sort, one index\n);\n```\n\n### Then ship it as a migration\n\nFollow the `dba` subagent flow (agents/subagents.md): edit `schema.ts` → `bun --filter @geo/db generate` → **read the SQL diff** → export new tables/types from `src/index.ts`.\n\n### Verify\n\n- `bun --filter @geo/db generate` produces a migration whose SQL matches your intent (no surprise DROP).\n- Every FK you query on has an index. No index exists that no query uses.\n- `bun run typecheck` passes; consumers import the new type by package name (`@geo/db`).\n\n## Examples\n\n- User: \"Posts need tags.\"\n  Output: Child table (`post_tags`) with FK to posts, `onDelete: cascade`, index on the FK — never `tag1/tag2/tag3` columns; ship as a generated, reviewed migration.\n- User: \"This dashboard query is slow, should I add a column caching the count?\"\n  Output: First check with [optimize-a-query](../optimize-a-query/SKILL.md) whether an index fixes it; denormalize only if the hot path is measured — and comment why at the column.\n\n## Boundaries\n\n- In scope: `libs/db/src/schema.ts` modeling, keys/constraints/indexes, migration discipline.\n- Out of scope: reading EXPLAIN plans and N+1 hunting (optimize-a-query), Neon operating strategy (run-lean-on-neon).\n- When unclear: normalize, constrain, and wait for a real query before adding any index beyond the FKs it needs.\n\n## References\n\n- Use The Index, Luke — the practical guide to indexing: <https://use-the-index-luke.com>\n- Postgres indexes: <https://www.postgresql.org/docs/current/indexes.html>\n- Drizzle schema + indexes: <https://orm.drizzle.team/docs/indexes-constraints>\n"
+    },
+    {
+      "name": "optimize-a-query",
+      "namespace": "optimize-a-query",
+      "service": "optimize-a-query",
+      "path": "optimize-a-query/SKILL.md",
+      "title": "Optimize a query",
+      "description": "[Scope: builders-stack monorepo — diagnosing and fixing slow Postgres queries] Measure-don't-guess query diagnosis: read the EXPLAIN (ANALYZE, BUFFERS) plan, find the missing index or the Drizzle ORM N+1, surface unknown hot queries via pg_stat_statements, set statement_timeout guardrails, and confirm the fix with a re-run plan. Use for: a slow page/endpoint traced to a specific query, a query that times out, pg_stat_statements showing a hot query, \"same short query repeated with different ids\" in the logs. Not for: designing the index or reshaping the table itself (use design-a-schema — this skill finds the need, that one builds it), connection storms / compute / free-tier strategy on Neon (use run-lean-on-neon). Activate: \"slow query\", \"query times out\", \"page is slow\", \"EXPLAIN this\", \"seq scan\", \"N+1\", \"what's hitting the DB so hard\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 92,
+      "body": "\n# Optimize a query\n\nMeasure, don't guess. A slow query is almost always a sequential scan that should be an index scan, or an ORM that fired N queries where one would do. Both are visible — you just have to look.\n\n## Critical Rules\n\n- **Never fix a query you haven't planned.** `EXPLAIN (ANALYZE, BUFFERS)` first; re-run it after — the fix isn't done until the plan changed.\n- **The fix for a Seq Scan on a filtered/joined big table is an index, not a query rewrite** — and the index work happens in [design-a-schema](../design-a-schema/SKILL.md) (don't over-index).\n- **Never fetch relations in a loop** — Drizzle relational `with` or one `inArray(...)` batch, not a `for` loop of `db.query`.\n\n## Core Instructions\n\n### 1. Read the plan\n\nRun the actual query with a plan (via `psql` against your `DATABASE_URL`, or Drizzle's logger):\n\n```sql\nEXPLAIN (ANALYZE, BUFFERS) SELECT ... ;\n```\n\nWhat to look for:\n\n- **`Seq Scan` on a big table** where you filter/join → **missing index**. The fix is an index (usually on the FK or the filtered column), not a query rewrite.\n- **`Rows Removed by Filter` ≫ rows returned** → the index isn't selective, or a partial index would help.\n- **Estimated rows wildly off actual** → stale stats: `ANALYZE <table>;` (autovacuum usually handles this).\n- **Nested Loop over many rows** → often the ORM N+1 below, not a single bad query.\n\n### 2. Catch the ORM N+1\n\nThe most common \"slow page\" in this stack isn't one slow query — it's **many fast ones**. Loading a list and then fetching each row's relation in a loop fires 1 + N queries.\n\n- **Symptom:** the same short query in the logs, repeated with different ids.\n- **Fix:** use Drizzle's relational query with `with` (one join-backed query), or a single `inArray(...)` batch — never a `for` loop of `db.query`.\n\n```ts\n// ❌ N+1\nfor (const p of posts) p.author = await db.query.user.findFirst({ where: eq(user.id, p.authorId) });\n// ✅ one query\nconst rows = await db.query.posts.findMany({ with: { author: true } });\n```\n\n### 3. Find the hot queries you didn't know about\n\n`pg_stat_statements` ranks queries by total time (Neon supports it — `CREATE EXTENSION IF NOT EXISTS pg_stat_statements;`):\n\n```sql\nSELECT query, calls, mean_exec_time, total_exec_time\nFROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 10;\n```\n\nThe top rows are where an index or an N+1 fix pays off most.\n\n### 4. Guardrail\n\nSet a `statement_timeout` (per session or per role on Neon) so a pathological query fails fast instead of pinning compute:\n\n```sql\nALTER ROLE app SET statement_timeout = '10s';\n```\n\n### Verify\n\nRe-run `EXPLAIN (ANALYZE)` — the `Seq Scan` is now an `Index Scan`/`Index Only Scan`, actual time dropped, and the N+1 is a single query in the logs. If you added an index, confirm it's the minimal one that does the job (see design-a-schema — don't over-index).\n\n## Examples\n\n- User: \"The posts list endpoint takes 4 seconds.\"\n  Output: Trace to the query; if the logs show one author-lookup per post, it's the N+1 — switch to `findMany({ with: { author: true } })`; else EXPLAIN and look for the Seq Scan.\n- User: \"The DB feels slow overall but I don't know why.\"\n  Output: `pg_stat_statements` top-10 by total time first, then plan the leaders — don't guess from vibes.\n\n## Boundaries\n\n- In scope: plan reading, N+1 elimination, hot-query discovery, timeout guardrails, verifying fixes.\n- Out of scope: creating/reshaping indexes and tables (design-a-schema), Neon connection strings/pooling/compute (run-lean-on-neon).\n- When unclear: get a plan or a pg_stat_statements ranking before changing anything.\n\n## References\n\n- `EXPLAIN` output, explained: <https://www.postgresql.org/docs/current/using-explain.html>\n- `pg_stat_statements`: <https://www.postgresql.org/docs/current/pgstatstatements.html>\n- Drizzle relational queries (avoid N+1): <https://orm.drizzle.team/docs/rqb>\n"
+    },
+    {
+      "name": "run-lean-on-neon",
+      "namespace": "run-lean-on-neon",
+      "service": "run-lean-on-neon",
+      "path": "run-lean-on-neon/SKILL.md",
+      "title": "Run lean on Neon",
+      "description": "[Scope: builders-stack monorepo — operating Postgres on Neon's free tier] Keep Postgres fast under load and inside Neon's free limits (0.5 GB storage, 100 CU-hours/mo compute, 5-min autosuspend): pooled vs direct connection strings, never poll/keepalive the DB, session-cookie caching, the session-strategy ladder, storage hygiene, and the few session/role GUCs you can actually set. Corrects the classic mistake of reaching for postgresql.conf/PgTune — Neon manages those, they do not apply. Use for: choosing a connection string, \"the DB crashes at load\", deciding a session/auth-validation strategy, staying under free-tier storage or compute, wondering which Postgres tuning advice applies on Neon. Not for: diagnosing one slow query's plan or N+1 (use optimize-a-query), table/index design (use design-a-schema), non-Neon Postgres tuning. Activate: \"Neon free tier\", \"DB crashes at load\", \"connection string\", \"pooled or direct\", \"compute hours\", \"session strategy\", \"should I use JWT\", \"postgresql.conf\", \"PgTune\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 86,
+      "body": "\n# Run lean on Neon\n\nThe stack's prod DB is **Neon** (serverless, managed Postgres). That changes the whole \"tune Postgres\" story: **you do not own a `postgresql.conf`**, so most classic advice (PgTune output — `shared_buffers`, `checkpoint_timeout`, `max_wal_size`, `maintenance_work_mem`) **does not apply** — Neon manages it. What you _do_ control is connections, the query/schema shape, a few session GUCs, and how often the app wakes the compute. Those are where \"crashes at load\" and \"blew the free tier\" actually come from.\n\n## Critical Rules\n\n- **Never poll or keepalive the DB.** This is the stack's \"push, don't poll\" law applied to Postgres — a `setInterval` health-ping or a per-minute cron holds compute open 24/7 and burns all ~400 hours. Use SSE/WebSocket for status; let the DB sleep (autosuspend is your friend — an idle DB costs zero compute).\n- **App `DATABASE_URL` uses the pooled (`-pooler`, PgBouncer) connection string; migrations use the direct one.** Connection storms — not WAL tuning — are what actually crashes Postgres: free-tier compute is small (0.25 CU) so `max_connections` is low, and a burst of serverless instances each opening a direct connection exhausts it instantly. One `postgres.js` client per process (as `libs/db/src/client.ts` does), not per request.\n- **Keep `cookieCache` on** (default in `libs/auth`) — and **do not extend its TTL to \"save more\": it's a revocation dial, not a cost dial**.\n- **No blobs in Postgres** — files/images go to object storage (R2/S3), store the URL.\n- **Do NOT touch `postgresql.conf` or run PgTune** — doesn't apply on Neon.\n\n## Core Instructions\n\n### The free-tier limits that bind (verify at <https://neon.com/pricing>, they change)\n\n| Limit       | Free                                      | What it means                                                          |\n| ----------- | ----------------------------------------- | ---------------------------------------------------------------------- |\n| Storage     | **0.5 GB / project**                      | overflow → **writes fail**. Don't put blobs in Postgres.               |\n| Compute     | **100 CU-hours / mo** (~400 h at 0.25 CU) | overflow → **compute suspended till next month**. The real bottleneck. |\n| Autosuspend | after **5 min** idle (can't disable)      | your friend — an idle DB costs zero compute.                           |\n| Branches    | **10 / project**                          | prune dev branches; change history counts toward storage.              |\n\n### Compute (CU-hours) — don't wake the DB for nothing\n\nAn idle client makes **zero** requests → compute suspends → CU-hours preserved. Everything that _pins compute awake_ is the enemy:\n\n- **Cache the session cookie** — the single biggest saver. Better Auth's `getSession` runs on nearly every request; each one is a DB round-trip that keeps compute awake. `session.cookieCache` (ON by default in `libs/auth`) serves the session from a signed 5-min cookie and only touches the DB on miss.\n- **Batch background work** into one wake instead of trickling writes.\n\n### Storage (0.5 GB) — and the tension with indexing\n\n- **Prune telemetry/log tables** — rotate or offload; they grow unbounded and eat the cap.\n- **Indexes cost storage.** [design-a-schema](../design-a-schema/SKILL.md) says index every FK you query — true — but on the free tier that's a budget: index what real queries need, **drop indexes nothing uses**. Don't index speculatively.\n- Let autovacuum reclaim dead tuples; long-lived branches with heavy churn inflate change history.\n\n### Session strategy — the ladder (stop at the first rung that holds)\n\n1. **`cookieCache` only (default).** Removes per-request Neon hits. Free, no new vendor, revocation ≤ 5 min. **Enough for most free-tier apps — stop here.**\n2. **Cloudflare CDN** for public/cacheable routes (landing/blog/assets) — those never hit origin _or_ DB. Cannot cache authenticated per-user responses.\n3. **`secondaryStorage` on Workers KV / DO** — _upgrade only_, when per-TTL Neon session reads become a measured cost or you want zero Neon coupling. **Mind KV's free cap: 1,000 writes/day** (every login/refresh/revoke is a write); DO-SQLite has more write headroom (100k/day) but more moving parts. Gains instant-ish revocation.\n4. **Stateless JWT — no.** It optimizes the thing `cookieCache` already fixed (per-request DB hits) by sacrificing what you can't cheaply rebuild: **revocation**. A JWT can't be revoked before expiry without a denylist lookup — which is the stateful check you were removing.\n\n### The GUCs you _can_ set on Neon (session/role level, not a conf file)\n\n- `work_mem` — bump per role for heavy sort/hash queries (`ALTER ROLE app SET work_mem = '32MB'`). Default 4 MB is tiny.\n- `synchronous_commit = off` — the honest \"MongoDB mode\": acknowledge commits before the WAL is durably flushed. **Per-transaction, for non-critical writes only** (telemetry, sessions) — a crash can lose the last fraction of a second (no corruption). Never for payments/orders.\n- `statement_timeout` — cap runaway queries so they fail fast instead of pinning compute.\n\n### Verify\n\n- App `DATABASE_URL` uses the **pooled** endpoint; migrations use the direct one.\n- `cookieCache` is enabled (`libs/auth`) — auth isn't hitting the DB per request.\n- Nothing polls/keepalives the DB; no blobs in Postgres.\n- You are **not** editing `postgresql.conf` or running PgTune (it doesn't apply here).\n\n## Examples\n\n- User: \"The DB falls over when traffic spikes.\"\n  Output: Check the connection string first — direct instead of pooled is the usual cause; switch app to the `-pooler` host, keep one client per process. It's a storm, not a tuning problem.\n- User: \"Should we move sessions to JWTs to cut DB load?\"\n  Output: No — rung 4 of the ladder. `cookieCache` (rung 1, already on) removed those hits; JWT sacrifices revocation for a problem that's solved.\n\n## Boundaries\n\n- In scope: Neon connection/compute/storage strategy, session ladder, allowed GUCs.\n- Out of scope: per-query diagnosis (optimize-a-query), schema/index design (design-a-schema), other Postgres hosts' tuning.\n- When unclear: prefer the change that lets compute suspend more often.\n\n## References\n\n- Neon pricing / plan limits: <https://neon.com/pricing>\n- Neon connection pooling: <https://neon.com/docs/connect/connection-pooling>\n- Neon autosuspend / scale-to-zero: <https://neon.com/docs/introduction/scale-to-zero>\n- Better Auth cookie cache: <https://www.better-auth.com/docs/concepts/session-management#cookie-cache>\n- Better Auth secondaryStorage: <https://www.better-auth.com/docs/concepts/database#secondary-storage>\n"
+    },
+    {
+      "name": "wire-a-new-payment-provider",
+      "namespace": "wire-a-new-payment-provider",
+      "service": "wire-a-new-payment-provider",
+      "path": "wire-a-new-payment-provider/SKILL.md",
+      "title": "Wire a new payment provider",
+      "description": "[Scope: builders-stack monorepo — payment provider integrations behind the @geo/payment adapter] Add or swap a payment provider (Stripe, Paddle, Lemon Squeezy, …) alongside or in place of the default Creem adapter by writing a new implementation of the PaymentProvider interface: the impl file, webhook signature verification, env config, an env-flag factory, and keeping the checkout contract (Bruno collection) stable. The whole point of the adapter: apps and the API never change — only the adapter implementation does. Use for: replacing Creem with another provider, supporting a second provider (e.g. Creem as Merchant-of-Record + Stripe for a region), adding a provider implementation. Not for: checkout copy or button changes (app-side, touches no payment code), general service scaffolding (use add-a-service), storing payment data models (design-a-schema). Activate: \"add Stripe\", \"swap payment provider\", \"integrate Paddle/Lemon Squeezy\", \"second payment provider\", \"payment webhook verification\".",
+      "disable_model_invocation": false,
+      "user_invocable": true,
+      "line_count": 97,
+      "body": "\n# Wire a new payment provider\n\nPayments in this repo go through **one adapter interface** in `@geo/payment`. Apps and `@geo/api` call the interface, never a provider SDK. Swapping or adding a provider means writing a new implementation of that interface — nothing upstream changes. That's the entire reason the adapter exists.\n\n## Critical Rules\n\n- **The invariant:**\n\n  ```\n  apps/web ──▶ @geo/api  /checkout ──▶ @geo/payment (interface) ──▶ <provider impl>\n                                              ▲ everything left of here NEVER changes\n  ```\n\n  If your change edits an app or an API route to call a provider SDK directly, stop — you've broken the adapter. Route it through the interface.\n- **Never trust an unverified webhook body** — verify the provider's signature and throw on mismatch. This is a trust boundary; do not simplify it away.\n- **Keep the provider SDK import confined to the impl file.** Callers see the normalized `PaymentEvent` type only.\n- **The Bruno request `api-collection/payment/checkout.bru` must pass unchanged** — that's the contract test.\n\n## Core Instructions\n\n### The interface (shape to conform to)\n\n`@geo/payment` exposes a single door. Every provider implements the same contract:\n\n```ts\nexport interface PaymentProvider {\n  createCheckout(input: {\n    priceId: string;\n    customerEmail?: string;\n    successUrl: string;\n    cancelUrl: string;\n    metadata?: Record<string, string>;\n  }): Promise<{ checkoutUrl: string; sessionId: string }>;\n\n  // Verify the signature, then return a normalized event. Throw on bad signature.\n  verifyWebhook(rawBody: string, signature: string): Promise<PaymentEvent>;\n}\n\nexport type PaymentEvent =\n  | {\n      type: \"checkout.completed\";\n      sessionId: string;\n      customerEmail?: string;\n      metadata?: Record<string, string>;\n    }\n  | { type: \"subscription.updated\"; customerId: string; status: string }\n  | { type: \"unknown\"; raw: unknown };\n```\n\n### Steps\n\n1. **Add the impl** in `services/payment/src/providers/<provider>.ts`, implementing `PaymentProvider`. Keep the provider SDK import confined to this file.\n\n2. **Config, not hardcoding.** Read keys/secrets from env. Add them to `.env.example` with empty values and a comment:\n\n   ```\n   # services/payment — <Provider>\n   <PROVIDER>_API_KEY=\n   <PROVIDER>_WEBHOOK_SECRET=\n   ```\n\n3. **Verify webhook signatures** in `verifyWebhook` using the provider's documented scheme and `<PROVIDER>_WEBHOOK_SECRET`.\n\n4. **Select the provider** in one place (a factory reading an env flag like `PAYMENT_PROVIDER=creem|stripe`), so switching is a config change, not a code change.\n\n5. **Keep the routes stable.** `POST /checkout` returns `{ checkoutUrl }`; the webhook route calls `verifyWebhook` then handles the normalized `PaymentEvent`.\n\n6. **Normalize, don't leak.** Map provider-specific payloads into `PaymentEvent` inside the adapter.\n\n### Verify\n\n- `bun run typecheck` passes.\n- `POST /checkout` (via `api-collection/payment/checkout.bru`) returns a `checkoutUrl` unchanged from before.\n- A tampered webhook body is rejected by `verifyWebhook` (bad-signature path throws). Add one small assertion/test for that path — it's a money/security boundary.\n\n## Examples\n\n- User: \"Add Stripe for EU customers alongside Creem.\"\n  Output: New `providers/stripe.ts` implementing the interface, env keys in `.env.example`, factory selects by flag/region — no app or API route changes; checkout.bru still green.\n- User: \"The checkout button should say 'Subscribe'.\"\n  Output: App-side copy change — touches no payment code; not this skill.\n\n## Boundaries\n\n- In scope: provider implementations behind `@geo/payment`, webhook verification, provider selection, contract stability.\n- Out of scope: checkout UI (apps), new services (add-a-service), payment data schema (design-a-schema).\n- When unclear: if the diff touches anything left of the interface in the invariant diagram, the approach is wrong.\n"
+    }
+  ],
+  "edges": [
+    {
+      "source": "add-a-lib",
+      "target": "add-a-service",
+      "relation": "redirect"
+    },
+    {
+      "source": "add-a-lib",
+      "target": "design-a-schema",
+      "relation": "reference"
+    },
+    {
+      "source": "add-a-service",
+      "target": "add-a-lib",
+      "relation": "redirect"
+    },
+    {
+      "source": "add-a-service",
+      "target": "design-a-schema",
+      "relation": "reference"
+    },
+    {
+      "source": "add-a-service",
+      "target": "wire-a-new-payment-provider",
+      "relation": "reference"
+    },
+    {
+      "source": "design-a-schema",
+      "target": "optimize-a-query",
+      "relation": "redirect"
+    },
+    {
+      "source": "design-a-schema",
+      "target": "run-lean-on-neon",
+      "relation": "redirect"
+    },
+    {
+      "source": "optimize-a-query",
+      "target": "design-a-schema",
+      "relation": "redirect"
+    },
+    {
+      "source": "optimize-a-query",
+      "target": "run-lean-on-neon",
+      "relation": "redirect"
+    },
+    {
+      "source": "run-lean-on-neon",
+      "target": "design-a-schema",
+      "relation": "redirect"
+    },
+    {
+      "source": "run-lean-on-neon",
+      "target": "optimize-a-query",
+      "relation": "redirect"
+    },
+    {
+      "source": "wire-a-new-payment-provider",
+      "target": "add-a-service",
+      "relation": "redirect"
+    },
+    {
+      "source": "wire-a-new-payment-provider",
+      "target": "design-a-schema",
+      "relation": "reference"
+    }
+  ],
+  "health": {
+    "unresolved": [
+
+    ],
+    "orphans": [
+      "ai-seo"
+    ],
+    "too_long": [
+
+    ],
+    "missing_namespace": [
+      "add-a-lib",
+      "add-a-service",
+      "ai-seo",
+      "design-a-schema",
+      "optimize-a-query",
+      "run-lean-on-neon",
+      "wire-a-new-payment-provider"
+    ]
+  }
+}</script>
+  <script>
+    const data = JSON.parse(document.getElementById("skill-data").textContent);
+    const colors = { external: "#c7602b", shared: "#4cb7e8", local: "#778494" };
+    const nodes = data.skills.map(skill => ({
+      ...skill,
+      in: data.edges.filter(edge => edge.target === skill.name),
+      out: data.edges.filter(edge => edge.source === skill.name)
+    }));
+    const byName = Object.fromEntries(nodes.map(node => [node.name, node]));
+    const namespaces = [...new Set(nodes.map(node => node.namespace))].sort();
+    let activeNamespaces = new Set(namespaces);
+    let selected = null;
+    let query = "";
+
+    const search = document.getElementById("search");
+    const clearSearch = document.getElementById("clearSearch");
+    const filters = document.getElementById("filters");
+    const stats = document.getElementById("stats");
+    const detail = document.getElementById("detail");
+    const health = document.getElementById("health");
+    const skillList = document.getElementById("skillList");
+    const fitAll = document.getElementById("fitAll");
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function visible(node) {
+      if (!activeNamespaces.has(node.namespace)) return false;
+      if (!query) return true;
+      const text = `${node.name} ${node.title} ${node.path} ${node.description} ${node.in.map(e => e.source).join(" ")} ${node.out.map(e => e.target).join(" ")}`.toLowerCase();
+      return text.includes(query);
+    }
+
+    function visibleNames() {
+      return new Set(nodes.filter(visible).map(node => node.name));
+    }
+
+    function selectSkill(name) {
+      selected = (selected && selected.name === name) ? null : (byName[name] || selected);
+      render();
+    }
+
+    function renderFilters() {
+      filters.innerHTML = namespaces.map(ns => {
+        const active = activeNamespaces.has(ns);
+        return `<button type="button" class="${active ? "" : "off"}" data-ns="${ns}" style="color:${colors[ns] || colors.local}"><span class="dot"></span>${ns}</button>`;
+      }).join("");
+      filters.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          const ns = button.dataset.ns;
+          if (activeNamespaces.has(ns) && activeNamespaces.size > 1) activeNamespaces.delete(ns);
+          else activeNamespaces.add(ns);
+          render();
+        });
+      });
+    }
+
+    function renderGraphState() {
+      const visibleSet = visibleNames();
+      const inNames = new Set(selected ? selected.in.map(e => e.source) : []);
+      const outNames = new Set(selected ? selected.out.map(e => e.target) : []);
+      const activeSet = new Set(selected ? [selected.name, ...inNames, ...outNames] : []);
+
+      document.querySelectorAll(".node").forEach(nodeEl => {
+        const name = nodeEl.dataset.name;
+        const isSel = selected && selected.name === name;
+        const isIn = inNames.has(name);
+        const isOut = outNames.has(name);
+        nodeEl.classList.toggle("hidden", !visibleSet.has(name));
+        nodeEl.classList.toggle("selected", isSel);
+        nodeEl.classList.toggle("nbr-in", !isSel && isIn && !isOut);
+        nodeEl.classList.toggle("nbr-out", !isSel && isOut && !isIn);
+        nodeEl.classList.toggle("nbr-both", !isSel && isIn && isOut);
+        nodeEl.classList.toggle("dim", selected && visibleSet.has(name) && !activeSet.has(name));
+      });
+
+      document.querySelectorAll(".edge").forEach(edgeEl => {
+        const source = edgeEl.dataset.source;
+        const target = edgeEl.dataset.target;
+        const visibleEdge = visibleSet.has(source) && visibleSet.has(target);
+        const isOut = selected && source === selected.name;
+        const isIn = selected && target === selected.name;
+        edgeEl.classList.toggle("hidden", !visibleEdge);
+        edgeEl.classList.toggle("outgoing", visibleEdge && isOut);
+        edgeEl.classList.toggle("incoming", visibleEdge && isIn);
+        edgeEl.classList.toggle("dim", visibleEdge && selected && !isOut && !isIn);
+      });
+    }
+
+    function renderStats() {
+      const list = nodes.filter(visible);
+      const set = new Set(list.map(node => node.name));
+      const edgeCount = data.edges.filter(edge => set.has(edge.source) && set.has(edge.target)).length;
+      const issues = data.health.unresolved.length + data.health.orphans.length + data.health.too_long.length + data.health.missing_namespace.length;
+      stats.innerHTML = `
+        <div class="stat"><strong>${list.length}</strong><span>visible</span></div>
+        <div class="stat"><strong>${data.skills.length}</strong><span>skills</span></div>
+        <div class="stat"><strong>${edgeCount}</strong><span>edges</span></div>
+        <div class="stat"><strong>${issues}</strong><span>issues</span></div>
+      `;
+    }
+
+    function edgeRows(title, edges, key) {
+      if (!edges.length) return `<div class="row"><strong>${title}</strong><small>None</small></div>`;
+      return `<div class="row"><strong>${title}</strong>${edges.map(edge => `<small>${edge.relation}: <button data-select="${edge[key]}">${edge[key]}</button></small>`).join("")}</div>`;
+    }
+
+    function renderDetail() {
+      if (!selected) {
+        detail.innerHTML = `
+          <h3>Graph Overview</h3>
+          <p>${data.skills.length} skills are present across ${namespaces.length} namespaces. Use search, namespace filters, or select a node to inspect inbound and outbound links.</p>
+          <div class="badges">
+            ${namespaces.map(ns => `<span class="badge" style="color:${colors[ns] || colors.local}"><span class="dot"></span>${ns}</span>`).join("")}
+          </div>
+        `;
+        return;
+      }
+      detail.innerHTML = `
+        <h3>${escapeHtml(selected.name)}</h3>
+        <div class="path">${escapeHtml(selected.path)}</div>
+        ${descSections(selected.description)}
+        <div class="badges">
+          <span class="badge" style="color:${colors[selected.namespace] || colors.local}"><span class="dot"></span>${selected.namespace}</span>
+          <span class="badge">${selected.disable_model_invocation ? "manual" : "model-invocable"}</span>
+          <span class="badge">${selected.user_invocable ? "user" : "background"}</span>
+          <span class="badge">${selected.line_count} lines</span>
+        </div>
+        <div class="list">${edgeRows("Outgoing", selected.out, "target")}${edgeRows("Incoming", selected.in, "source")}</div>
+        ${fullSkillBlock(selected.body)}
+      `;
+      detail.querySelectorAll("[data-select]").forEach(button => button.addEventListener("click", () => selectSkill(button.dataset.select)));
+    }
+
+    function parseDescription(desc) {
+      const text = String(desc || "").trim();
+      let scope = "", rest = text;
+      if (text.slice(0, 7) === "[Scope:") {
+        const close = text.indexOf("]");
+        if (close > -1) { scope = text.slice(7, close).trim(); rest = text.slice(close + 1).trim(); }
+      }
+      const iUse = rest.indexOf("Use for:");
+      const iNot = rest.indexOf("Not for:");
+      const iAct = rest.indexOf("Activate:");
+      const firstOf = (arr) => { const xs = arr.filter(i => i > -1); return xs.length ? Math.min.apply(null, xs) : rest.length; };
+      const summary = rest.slice(0, firstOf([iUse, iNot, iAct])).trim();
+      const useFor = iUse > -1 ? rest.slice(iUse + 8, iNot > iUse ? iNot : (iAct > iUse ? iAct : rest.length)).trim() : "";
+      const notFor = iNot > -1 ? rest.slice(iNot + 8, iAct > iNot ? iAct : rest.length).trim() : "";
+      const actRaw = iAct > -1 ? rest.slice(iAct + 9) : "";
+      const activate = (actRaw.match(/"([^"]+)"/g) || []).map(s => s.slice(1, -1));
+      return { scope, summary, useFor, notFor, activate };
+    }
+
+    function descSections(desc) {
+      const d = parseDescription(desc);
+      const sec = (label, txt) => txt ? `<div class="desc-sec"><span class="desc-label">${label}</span><span class="desc-text">${escapeHtml(txt)}</span></div>` : "";
+      const chips = d.activate.length
+        ? `<div class="desc-sec"><span class="desc-label">Activate</span><div class="chips">${d.activate.map(a => `<span class="chip-sm">${escapeHtml(a)}</span>`).join("")}</div></div>`
+        : "";
+      return (d.summary ? `<p class="desc-summary">${escapeHtml(d.summary)}</p>` : "")
+        + sec("Scope", d.scope) + sec("Use for", d.useFor) + sec("Not for", d.notFor) + chips;
+    }
+
+    function fullSkillBlock(body) {
+      return body
+        ? `<details class="full-skill"><summary>Full skill text</summary><div class="skill-body">${renderMarkdown(body)}</div></details>`
+        : "";
+    }
+
+    function linkify(s) {
+      let out = "", i = 0;
+      while (i < s.length) {
+        const open = s.indexOf("[", i);
+        if (open < 0) { out += s.slice(i); break; }
+        const close = s.indexOf("](", open);
+        const end = close > -1 ? s.indexOf(")", close + 2) : -1;
+        if (close < 0 || end < 0) { out += s.slice(i, open + 1); i = open + 1; continue; }
+        out += s.slice(i, open) + '<a class="md-a" href="' + s.slice(close + 2, end) + '" target="_blank" rel="noopener">' + s.slice(open + 1, close) + '</a>';
+        i = end + 1;
+      }
+      return out;
+    }
+
+    function mdInline(t) {
+      let s = escapeHtml(t);
+      s = s.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+      s = s.replace(/[*][*]([^*]+)[*][*]/g, '<strong>$1</strong>');
+      return linkify(s);
+    }
+
+    function renderMarkdown(md) {
+      const NL = String.fromCharCode(10);
+      const lines = String(md || "").split(NL);
+      const out = [];
+      let i = 0, list = null;
+      const closeList = () => { if (list) { out.push("</" + list + ">"); list = null; } };
+      while (i < lines.length) {
+        const t = lines[i].trim();
+        if (t.indexOf("```") === 0) {
+          closeList();
+          const buf = []; i++;
+          while (i < lines.length && lines[i].trim().indexOf("```") !== 0) { buf.push(escapeHtml(lines[i])); i++; }
+          i++;
+          out.push('<pre class="md-pre"><code>' + buf.join(NL) + "</code></pre>");
+          continue;
+        }
+        if (t === "") { closeList(); i++; continue; }
+        if (t[0] === "#") {
+          closeList();
+          let lvl = 0; while (lvl < t.length && t[lvl] === "#") lvl++;
+          const n = Math.min(lvl, 6);
+          out.push("<h" + n + ' class="md-h">' + mdInline(t.slice(lvl).trim()) + "</h" + n + ">");
+          i++; continue;
+        }
+        if (t[0] === ">") {
+          closeList();
+          const buf = [];
+          while (i < lines.length && lines[i].trim()[0] === ">") { buf.push(mdInline(lines[i].trim().slice(1).trim())); i++; }
+          out.push('<blockquote class="md-q">' + buf.join("<br>") + "</blockquote>");
+          continue;
+        }
+        if (t.indexOf("- ") === 0 || t.indexOf("* ") === 0) {
+          if (list !== "ul") { closeList(); out.push('<ul class="md-ul">'); list = "ul"; }
+          out.push("<li>" + mdInline(t.slice(2)) + "</li>"); i++; continue;
+        }
+        const dot = t.indexOf(". ");
+        if (dot > 0 && /^[0-9]+$/.test(t.slice(0, dot))) {
+          if (list !== "ol") { closeList(); out.push('<ol class="md-ol">'); list = "ol"; }
+          out.push("<li>" + mdInline(t.slice(dot + 2)) + "</li>"); i++; continue;
+        }
+        closeList();
+        out.push('<p class="md-p">' + mdInline(t) + "</p>"); i++;
+      }
+      closeList();
+      return out.join("");
+    }
+
+    function renderHealth() {
+      const rows = [
+        [data.health.unresolved.length === 0, data.health.unresolved.length === 0 ? "No unresolved skill references" : `${data.health.unresolved.length} unresolved references`],
+        [data.health.orphans.length === 0, data.health.orphans.length === 0 ? "No isolated skills" : `Isolated: ${data.health.orphans.join(", ")}`],
+        [data.health.too_long.length === 0, data.health.too_long.length === 0 ? "All active skills are under 250 lines" : `Too long: ${data.health.too_long.join(", ")}`],
+        [data.health.missing_namespace.length === 0, data.health.missing_namespace.length === 0 ? "All skills are namespaced" : `Missing namespace: ${data.health.missing_namespace.join(", ")}`]
+      ];
+      health.innerHTML = rows.map(([ok, text]) => `<div class="row"><strong class="${ok ? "ok" : "warn"}">${ok ? "OK" : "Check"}</strong><small>${escapeHtml(text)}</small></div>`).join("");
+    }
+
+    function renderSkillList() {
+      const list = nodes.filter(visible).sort((a, b) => a.name.localeCompare(b.name));
+      skillList.innerHTML = list.map(node => `
+        <div class="row">
+          <button data-select="${node.name}">${escapeHtml(node.name)}</button>
+          <small>${escapeHtml(node.title)} · ${node.in.length} in / ${node.out.length} out</small>
+        </div>
+      `).join("");
+      skillList.querySelectorAll("[data-select]").forEach(button => button.addEventListener("click", () => selectSkill(button.dataset.select)));
+    }
+
+    function render() {
+      renderFilters();
+      renderGraphState();
+      renderStats();
+      renderDetail();
+      renderHealth();
+      renderSkillList();
+    }
+
+    document.querySelectorAll(".node").forEach(node => node.addEventListener("click", () => selectSkill(node.dataset.name)));
+    search.addEventListener("input", () => {
+      query = search.value.trim().toLowerCase();
+      render();
+    });
+    clearSearch.addEventListener("click", () => {
+      search.value = "";
+      query = "";
+      activeNamespaces = new Set(namespaces);
+      render();
+    });
+    fitAll.addEventListener("click", () => {
+      search.value = "";
+      query = "";
+      activeNamespaces = new Set(namespaces);
+      selected = null;
+      render();
+    });
+
+    (function () {
+      const resizer = document.getElementById("resizer");
+      const workspace = document.querySelector(".workspace");
+      if (!resizer || !workspace) return;
+      let dragging = false;
+      const apply = (px) => {
+        const max = Math.round(window.innerWidth * 0.9);
+        const w = Math.max(300, Math.min(max, px));
+        workspace.style.setProperty("--aside-w", w + "px");
+      };
+      resizer.addEventListener("mousedown", (e) => {
+        dragging = true;
+        resizer.classList.add("dragging");
+        document.body.classList.add("resizing");
+        e.preventDefault();
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (dragging) apply(window.innerWidth - e.clientX);
+      });
+      window.addEventListener("mouseup", () => {
+        dragging = false;
+        resizer.classList.remove("dragging");
+        document.body.classList.remove("resizing");
+      });
+      resizer.addEventListener("dblclick", () => workspace.style.removeProperty("--aside-w"));
+    })();
+
+    render();
+  </script>
+</body>
+</html>

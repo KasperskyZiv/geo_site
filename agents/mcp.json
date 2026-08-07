@@ -13,7 +13,7 @@
       "type": "stdio",
       "command": "uvx",
       "args": ["postgres-mcp", "--access-mode=restricted"],
-      "_comment": "Reads the live schema/data via DATABASE_URL. crystaldba/postgres-mcp in READ-ONLY `restricted` mode (needs `uv`) — replaces the archived, SQL-injectable @modelcontextprotocol/server-postgres. Pair with the `dba` subagent + agents/skills/optimize-a-query.",
+      "_comment": "Reads the live schema/data via DATABASE_URL. crystaldba/postgres-mcp in READ-ONLY `restricted` mode (needs `uv`) — replaces the archived, SQL-injectable @modelcontextprotocol/server-postgres. Pair with the `dba` subagent + .claude/skills/optimize-a-query.",
       "env": { "DATABASE_URI": "${DATABASE_URL}" }
     },
     "neon": {
