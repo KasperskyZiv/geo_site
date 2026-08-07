@@ -19,6 +19,7 @@ coverage/
 # into each app/service). Never commit it; .env.example documents every key.
 .env.*
 .env*.*
+.env
 
 # OS / editor
 .DS_Store
