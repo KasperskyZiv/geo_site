@@ -49,6 +49,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@geo/analytics": "workspace:*",
+        "@geo/email": "workspace:*",
         "@geo/seo": "workspace:*",
         "@geo/ui": "workspace:*",
         "next": "16.3.0",

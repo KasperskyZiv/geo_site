@@ -9,6 +9,8 @@ import { VerifyEmail } from "./templates/verify-email";
 import type { VerifyEmailProps } from "./templates/verify-email";
 import { DripDay3 } from "./templates/drip-day3";
 import type { DripDay3Props } from "./templates/drip-day3";
+import { ReportLeadEmail } from "./templates/report-lead";
+import type { ReportLeadEmailProps } from "./templates/report-lead";
 
 // Typed template registry: name -> the props that template requires.
 // Add a template by extending this map + the two records below; call sites stay type-safe.
@@ -16,18 +18,21 @@ export interface TemplateProps {
   welcome: WelcomeEmailProps;
   "verify-email": VerifyEmailProps;
   "drip-day3": DripDay3Props;
+  "report-lead": ReportLeadEmailProps;
 }
 
 const templates: { [K in keyof TemplateProps]: ComponentType<TemplateProps[K]> } = {
   welcome: WelcomeEmail,
   "verify-email": VerifyEmail,
   "drip-day3": DripDay3,
+  "report-lead": ReportLeadEmail,
 };
 
 const subjects: { [K in keyof TemplateProps]: string } = {
   welcome: "Welcome to Builder's Stack",
   "verify-email": "Verify your email address",
   "drip-day3": "Getting the most out of Builder's Stack",
+  "report-lead": "New visibility-report lead",
 };
 
 // ponytail: one lazily-created Resend client; only built when a key exists.

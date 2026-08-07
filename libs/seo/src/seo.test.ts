@@ -10,8 +10,8 @@ import {
 } from "./json-ld";
 import { aiCrawlerRules, AI_CRAWLERS } from "./crawlers";
 
-// With no env set, @geo/config defaults apply: name "Builder's Stack", url localhost:3000.
-const NAME = "Builder's Stack";
+// With no env set, @geo/config defaults apply: name "Kordi", url localhost:3000.
+const NAME = "Kordi";
 const URL_ = "http://localhost:3000";
 
 test("pageMetadata fills OG + canonical + template from config defaults", () => {

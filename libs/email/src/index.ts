@@ -9,3 +9,5 @@ export { VerifyEmail } from "./templates/verify-email";
 export type { VerifyEmailProps } from "./templates/verify-email";
 export { DripDay3 } from "./templates/drip-day3";
 export type { DripDay3Props } from "./templates/drip-day3";
+export { ReportLeadEmail } from "./templates/report-lead";
+export type { ReportLeadEmailProps } from "./templates/report-lead";

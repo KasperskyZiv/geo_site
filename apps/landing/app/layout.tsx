@@ -1,18 +1,26 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono, Neucha } from "next/font/google";
 import "./globals.css";
 import { Analytics, ConsentBanner } from "@geo/analytics";
 import { JsonLd, organizationJsonLd, pageMetadata, websiteJsonLd } from "@geo/seo";
 import { SITE_URL } from "./seo";
 
-const NAME = "Builder's Stack";
+const NAME = "Kordi";
 const DESCRIPTION =
-  "An AI-native monorepo starter: apps · services · libs. Clone it, run one command, and you have a live app, a shared design system, and a repo that stays fast as it grows.";
+  "When a developer asks their coding agent what to install, one tool gets named — usually not yours. Kordi tracks every recommendation across Claude Code, Cursor and Copilot, shows who wins and why, and hands you the fix list to become the default.";
+
+// Brand type: Geist for body, Geist Mono for terminal/UI chips, Neucha for the
+// hand-sketched display voice. Exposed as CSS vars so Tailwind arbitrary values
+// (font-[family-name:var(--font-hand)]) can reach them anywhere.
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const neucha = Neucha({ weight: "400", subsets: ["latin"], variable: "--font-hand" });
 
 // One door for metadata — pageMetadata() fills metadataBase, canonical, OG, twitter, and
-// the `%s — Builder's Stack` title template from @geo/config. No hand-rolled OG here.
+// the `%s — Kordi` title template from @geo/config. No hand-rolled OG here.
 export const metadata: Metadata = pageMetadata({
   description: DESCRIPTION,
-  tagline: "an AI-native monorepo starter",
+  tagline: "be seen where builders ask",
 });
 
 // Sitewide structured data (schema.org) for rich results — Organization + WebSite, built
@@ -27,8 +35,11 @@ const structuredData = [
 // resolve to ONE PostHog person (cross-subdomain identity) — the full funnel.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${neucha.variable}`}>
+      <body
+        className="min-h-screen bg-[var(--kd-bg)] text-[var(--kd-ink)] antialiased"
+        style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}
+      >
         <JsonLd data={structuredData} />
         <Analytics>{children}</Analytics>
         {/* GDPR: analytics stay dormant until the visitor accepts here. */}

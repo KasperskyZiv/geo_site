@@ -6,3 +6,84 @@
    classes used *inside* @geo/ui components get generated. (This app's own app/**
    files are auto-detected.) */
 @source "../../../libs/ui/src";
+
+/* ── Kordi brand layer ─────────────────────────────────────────────────────────
+   Palette lifted from the approved "Kordi Home" draft. These are landing-only
+   tokens (the app/dashboard keeps the @geo/ui theme); components reference them
+   as var(--kd-*) so a palette change is a one-place edit. */
+:root {
+  --kd-bg: #fbf5e9; /* page cream */
+  --kd-paper: #f4ead3; /* raised paper panel */
+  --kd-card: #ede4cf; /* card fill */
+  --kd-ink: #232821; /* near-black ink */
+  --kd-ink-soft: #4a574d; /* secondary text */
+  --kd-muted: #6b7a6f; /* tertiary text */
+  --kd-coral: #ef6248; /* accent / alarm */
+  --kd-green: #2fa36b; /* success / brand green */
+  --kd-green-deep: #1c7a50; /* links, deep green */
+  --kd-yellow: #f4c24c; /* highlight */
+  --kd-blue: #7fb0c4; /* cool accent shadow */
+}
+
+/* Sticker look: thick ink border + hard offset shadow. Set --kd-shadow per use. */
+.kd-sticker {
+  border: 2.5px solid var(--kd-ink);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--kd-shadow, var(--kd-yellow));
+}
+
+/* Hero motion, verbatim timings from the draft. All transform/opacity only. */
+@keyframes kd-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes kd-float-a {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-11px) rotate(-2deg);
+  }
+}
+@keyframes kd-float-b {
+  0%,
+  100% {
+    transform: translateY(0) rotate(2.5deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(2.5deg);
+  }
+}
+@keyframes kd-label {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+/* Terminal caret blink for the plan-mode demo. */
+@keyframes kd-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* Respect reduced motion: the page reads fine fully static. */
+@media (prefers-reduced-motion: reduce) {
+  .kd-anim {
+    animation: none !important;
+  }
+}
