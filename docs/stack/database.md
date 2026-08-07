@@ -25,7 +25,7 @@ Neon is serverless, managed Postgres 16 that separates storage from compute. Thr
 
 **3. It's plain Postgres.** No dialect lock-in — `pgvector`, `pg_stat_statements`, JSONB, full-text all work, and Drizzle's `pg` dialect is unmodified. Which is exactly why "swap the host later" stays a one-line change.
 
-**The honest caveat:** the free tier's **compute (CU-hours) is the ceiling, not storage** — an always-on/polled DB burns the monthly 100 CU-hours in ~4 days. That's not a Neon flaw, it's the thing [`run-lean-on-neon`](../../agents/skills/run-lean-on-neon/SKILL.md) exists to manage (don't poll, cache the session, let it sleep).
+**The honest caveat:** the free tier's **compute (CU-hours) is the ceiling, not storage** — an always-on/polled DB burns the monthly 100 CU-hours in ~4 days. That's not a Neon flaw, it's the thing [`run-lean-on-neon`](../../.claude/skills/run-lean-on-neon/SKILL.md) exists to manage (don't poll, cache the session, let it sleep).
 
 ---
 

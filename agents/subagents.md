@@ -49,7 +49,7 @@ General rules:
 >
 > **Verify:** migration reviewed, `bun run typecheck` green, and `EXPLAIN` shows an index scan (not a seq scan) on the query you touched. Report: schema change, migration file + destructive? , and any index added/removed.
 
-**Skills:** [`design-a-schema`](./skills/design-a-schema/SKILL.md) · [`optimize-a-query`](./skills/optimize-a-query/SKILL.md) · [`run-lean-on-neon`](./skills/run-lean-on-neon/SKILL.md)
+**Skills:** [`design-a-schema`](../.claude/skills/design-a-schema/SKILL.md) · [`optimize-a-query`](../.claude/skills/optimize-a-query/SKILL.md) · [`run-lean-on-neon`](../.claude/skills/run-lean-on-neon/SKILL.md)
 
 ## reviewer
 

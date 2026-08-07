@@ -81,7 +81,7 @@ These are load-bearing. Nx turns the two headline laws into **lint errors** (eve
 
 **`@geo/seo` is the one door** for page metadata + JSON-LD. `bun run check:seo` gates it, so a public page that drifts can't merge. Source of truth: Google's guide — read it — <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>.
 
-The gate enforces the **mechanics** (metadata, canonical, JSON-LD, robots/sitemap, server-render). Making content actually **citable** by AI answers — answer-first blocks, comparison tables, corroborated stats — is authoring judgment no regex can check: see the vetted [`ai-seo`](../agents/skills/ai-seo/) skill. Enforce the mechanics, apply the authoring skill.
+The gate enforces the **mechanics** (metadata, canonical, JSON-LD, robots/sitemap, server-render). Making content actually **citable** by AI answers — answer-first blocks, comparison tables, corroborated stats — is authoring judgment no regex can check: see the vetted [`ai-seo`](./.claude/skills/ai-seo/) skill. Enforce the mechanics, apply the authoring skill.
 
 **DO**
 
@@ -144,10 +144,10 @@ cp .env.example .env.local
 | You need…                                                | Put it in                | Then                                                                                                                                                                   |
 | -------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | shared code used in 2+ places                            | a new `libs/*` package   | scaffold with the Nx generator: `nx g @nx/js:lib …` — it's born tagged `type:lib`, named `@geo/*`, with its single `src/index.ts` door                               |
-| something with its own URL/deploy                        | a new `services/*`       | scaffold, then add a `local_resource` to `.devops/Tiltfile`; skill: `agents/skills/add-a-service`                                                                      |
+| something with its own URL/deploy                        | a new `services/*`       | scaffold, then add a `local_resource` to `.devops/Tiltfile`; skill: `.claude/skills/add-a-service`                                                                      |
 | a new user-facing surface                                | a new `apps/*`           | scaffold, then wire it into `.devops/Tiltfile`                                                                                                                         |
 | a distributable to ship out (npm SDK, embed widget, CLI) | a new `packages/*`       | tag `type:package`, build to `dist/` (IIFE + ESM), depends on libs only, terminal. Recipe: [`docs/packages.md`](./docs/packages.md); worked example: `packages/widget` |
-| a new payment provider                                   | `@geo/payment` adapter | never inline in an app; skill: `agents/skills/wire-a-new-payment-provider`                                                                                             |
+| a new payment provider                                   | `@geo/payment` adapter | never inline in an app; skill: `.claude/skills/wire-a-new-payment-provider`                                                                                             |
 
 Prefer the Nx generators — a generated package **can't be born breaking the boundary laws** (it's tagged and has its barrel from birth). Commands: [`docs/nx.md`](./docs/nx.md).
 
@@ -190,7 +190,7 @@ Full law + our curated, scan-gated recommended list (adapt / link-only / reject 
 ## 9. Where to look next
 
 - [`agents/subagents.md`](./agents/subagents.md) — specialized subagents (frontend, backend, db-migrations, reviewer) and when to spawn them.
-- [`agents/skills/`](./agents/skills/) — step-by-step skills for the common structural tasks.
+- [`.claude/skills/`](./.claude/skills/) — step-by-step skills for the common structural tasks (auto-discovered by Claude Code).
 - [`agents/mcp.json`](./agents/mcp.json) — the MCP servers above.
 - [`docs/stack/architecture.md`](./docs/stack/architecture.md) — the taxonomy and the two laws, with diagrams.
 - [`docs/nx.md`](./docs/nx.md) — the task graph, caching, affected, boundaries, generators.
