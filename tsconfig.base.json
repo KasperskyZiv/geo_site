@@ -1,0 +1,38 @@
+{
+  "$comment": "Shared TS config. Every app/service/lib has its own tsconfig that extends this one — single source of truth (no config drift). The `paths` block below is what gives @nx/enforce-module-boundaries its teeth: without it Nx can't resolve @geo/* (apps & services have no `exports`/`main`) and silently SKIPS the tag depConstraints. Values MUST start with `./` (relative to this file) — bare `libs/...` triggers TS5090 since there's no baseUrl. App/service targets need not exist on disk; the boundary rule maps them to a project by root. Apps override `paths` in their own tsconfig, so this doesn't perturb their symlink/exports runtime resolution.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "paths": {
+      "@geo/ai": ["./libs/ai/src/index.ts"],
+      "@geo/analytics": ["./libs/analytics/src/index.ts"],
+      "@geo/analytics/events": ["./libs/analytics/src/events.ts"],
+      "@geo/api-types": ["./libs/api-types/src/index.ts"],
+      "@geo/auth": ["./libs/auth/src/index.ts"],
+      "@geo/config": ["./libs/config/src/index.ts"],
+      "@geo/db": ["./libs/db/src/index.ts"],
+      "@geo/email": ["./libs/email/src/index.ts"],
+      "@geo/seo": ["./libs/seo/src/index.ts"],
+      "@geo/ui": ["./libs/ui/src/index.ts"],
+      "@geo/ui/tokens": ["./libs/ui/src/tokens/index.ts"],
+      "@geo/api": ["./services/api/src/index.ts"],
+      "@geo/ai-worker": ["./services/ai-worker/src/index.ts"],
+      "@geo/payment": ["./services/payment/src/index.ts"],
+      "@geo/widget": ["./packages/widget/src/index.ts"],
+      "@geo/web": ["./apps/web/index.ts"],
+      "@geo/landing": ["./apps/landing/index.ts"],
+      "@geo/blog": ["./apps/blog/index.ts"],
+      "@geo/mobile": ["./apps/mobile/index.ts"]
+    }
+  }
+}

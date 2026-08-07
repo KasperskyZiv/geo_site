@@ -1,0 +1,49 @@
+# Weekly dependency updates. npm ecosystem covers the whole bun workspace (bun reads
+# the same package.json manifests); github-actions keeps the CI workflow's pinned
+# actions current. Grouped so you review one PR per ecosystem, not a swarm.
+version: 2
+updates:
+  # Root + EVERY workspace package.json (apps/services/libs each declare their own deps —
+  # posthog-js, better-auth, … — so scanning only "/" would miss them). SOC2 supply-chain.
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/apps/*"
+      - "/services/*"
+      - "/libs/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    # TypeScript majors are held back deliberately: TS 7 is the native rewrite and its
+    # changed compiler API breaks Nx's plugins (@nx/eslint + nx/js both throw
+    # "tsModule.readConfigFile is not a function"), failing `nx affected` outright — see
+    # the closed #22. Adopting TS 7 is a real migration gated on Nx support, not an
+    # auto-merge. Minor/patch TS updates still come through. Drop this once Nx ships
+    # TS 7 support.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # oxlint-tsgolint is oxlint's type-aware backend; its major line (7.x) tracks
+      # TypeScript 7, which we deliberately hold back (see above). Type-aware mode is
+      # also currently disabled (the backend was OOM-ing at tens of GB). Every regroup
+      # kept re-proposing the 7.x jump (closed #29, #31) — hold its majors too until we
+      # adopt TS 7. Minor/patch still flow.
+      - dependency-name: "oxlint-tsgolint"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci(deps)"

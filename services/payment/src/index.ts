@@ -1,0 +1,126 @@
+// @geo/payment — Creem checkout + webhooks (Hono).
+//   GET  /health     liveness + which provider is live
+//   POST /checkout   create a checkout session
+//   POST /webhook    verify signature, handle subscription/payment events
+// Boots without CREEM_API_KEY (falls back to Mock) in dev; in production a keyless
+// fallback to Mock is fatal — see the guard below.
+import { Hono } from "hono";
+import { z } from "zod";
+import { resolveProvider, type WebhookEvent } from "./provider.js";
+import { createRateLimiter } from "./rate-limit.js";
+import { reportError } from "@geo/observability";
+
+const provider = resolveProvider();
+
+// Fail closed in production: MockProvider.verifyWebhook trusts any payload, so a prod
+// deploy that reached Mock by fallback (no key, no selector) would accept forged
+// checkout/subscription events from anyone. Explicit PAYMENT_PROVIDER=mock still boots —
+// that's a deliberate choice, not a missing key. Mirrors the BETTER_AUTH_SECRET guard
+// in services/api.
+if (
+  process.env.NODE_ENV === "production" &&
+  provider.name === "mock" &&
+  process.env.PAYMENT_PROVIDER?.toLowerCase() !== "mock"
+) {
+  console.error(
+    "[payment] FATAL: no payment provider configured in production — the Mock fallback " +
+      "accepts unsigned webhooks. Set CREEM_API_KEY/DODO_API_KEY (or PAYMENT_PROVIDER=mock " +
+      "to run the mock deliberately). Refusing to start.",
+  );
+  process.exit(1);
+}
+
+const app = new Hono();
+
+// Reject oversized bodies before parsing (cheap DoS guard) + baseline security headers.
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
+app.use("*", async (c, next) => {
+  if (Number(c.req.header("content-length") ?? 0) > MAX_BODY_BYTES) {
+    return c.json({ error: "Payload too large" }, 413);
+  }
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Referrer-Policy", "no-referrer");
+});
+
+app.get("/health", (c) =>
+  c.json({
+    status: "ok",
+    service: "payment",
+    provider: provider.name,
+    live: provider.name === "creem",
+  }),
+);
+
+const CheckoutBody = z.object({
+  productId: z.string().min(1),
+  requestId: z.string().optional(),
+  successUrl: z.string().url().optional(),
+  customerEmail: z.string().email().optional(),
+});
+
+// /checkout is unauthenticated (a browser hits it before any session exists on this
+// service), which makes it a free lever for spamming provider checkout sessions and
+// checkout emails to arbitrary addresses. Per-IP fixed-window limit is the cheap abuse
+// brake; add real session auth here the day entitlements are wired up. Caveat:
+// x-forwarded-for is only trustworthy behind your own proxy — standalone, everything
+// shares the "unknown" bucket, which still caps total abuse throughput.
+const checkoutLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+
+app.post("/checkout", async (c) => {
+  const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkoutLimiter.check(ip)) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  const parsed = CheckoutBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "Invalid body", issues: parsed.error.issues }, 400);
+  try {
+    const session = await provider.createCheckout(parsed.data);
+    return c.json(session, 201);
+  } catch (err) {
+    reportError(err, { service: "payment", route: "checkout" });
+    return c.json({ error: "Checkout failed" }, 502);
+  }
+});
+
+// Webhook: read the RAW body BEFORE parsing — the signature is over exact bytes.
+app.post("/webhook", async (c) => {
+  const rawBody = await c.req.text();
+  const signature = c.req.header("creem-signature") ?? null;
+  const event = provider.verifyWebhook(rawBody, signature);
+  if (!event) return c.json({ error: "Invalid signature" }, 401);
+  handleEvent(event);
+  return c.json({ received: true });
+});
+
+function handleEvent(event: WebhookEvent): void {
+  switch (event.eventType) {
+    case "checkout.completed":
+      console.log("[payment] checkout completed", event.object.id ?? "");
+      break;
+    case "subscription.active":
+    case "subscription.paid":
+      console.log("[payment] subscription active/paid", event.object.id ?? "");
+      // grant/extend entitlement here
+      break;
+    case "subscription.canceled":
+    case "subscription.expired":
+      console.log("[payment] subscription ended", event.object.id ?? "");
+      // revoke entitlement here
+      break;
+    case "refund.created":
+    case "dispute.created":
+      console.log(`[payment] ${event.eventType}`, event.object.id ?? "");
+      break;
+    default:
+      console.log("[payment] unhandled event", event.eventType);
+  }
+}
+
+// PORT is injected by portless in local dev (payment.stack.localhost:1355);
+// falls back to 3002 for standalone `bun --filter @geo/payment dev`.
+const port = Number(process.env.PORT) || 3002;
+console.log(`[payment] listening on http://localhost:${port}  (provider: ${provider.name})`);
+
+export default { port, fetch: app.fetch };
