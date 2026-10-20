@@ -20,7 +20,7 @@ export const EnvSchema = z.object({
   // Public site identity — the single source @geo/seo's pageMetadata() reads for
   // canonical/OG. NEXT_PUBLIC_ so it's inlined for the browser too; never hardcode a
   // production domain in a page.
-  SITE_NAME: z.string().default("Builder's Stack"),
+  SITE_NAME: z.string().default("Kordi"),
   NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
 
   // Server-side PostHog (optional — absent = analytics no-op, see @geo/analytics).

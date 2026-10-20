@@ -12,59 +12,45 @@ import { SITE_URL } from "./seo";
 // derived from SITE_URL (env) instead of a hardcoded domain. Format follows
 // llmstxt.org: H1 name, > blockquote summary, then ## sections of `- [title](url): desc`.
 
-// Where "Get started / Log in" points: the app. Env-driven, same as the landing page.
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
 const SUMMARY =
-  "An AI-native monorepo starter organized as apps · services · libs. Clone it, run one command, and you have a live web app, a shared design system, working auth, and a repo that stays fast as it grows — with a structure a coding agent can navigate without guessing.";
+  "Kordi is an AI-visibility (GEO) platform for developer-tool vendors. It tracks what coding agents — Claude Code, Cursor, GitHub Copilot, Windsurf — and chat assistants recommend in a product category, logs every citation behind those recommendations, and produces a ranked fix list that makes the client's product the one agents name.";
 
 /** The concise llms.txt — the human-curated shortlist an LLM reads at query time. */
 export function llmsTxt(): string {
-  return `# Builder's Stack
+  return `# Kordi
 
 > ${SUMMARY}
 
-Builder's Stack is a free, MIT-licensed TypeScript monorepo template built on Bun, Nx (enforced module boundaries), Next.js (App Router), a shadcn/ui design system shared across web and native, Better Auth, and Drizzle ORM (Postgres). Payments (Creem), email (Resend), and analytics (PostHog) are env-gated: each is a silent no-op until you add a key, so a fresh clone boots on an empty env file.
+Kordi measures the recommendation funnel other AI-monitoring tools don't see: the install-time prompts developers type into coding agents. It replays a category's buying prompts weekly across five LLMs plus four coding agents, scores share of voice against up to eight competitors, and pairs every miss with the exact source the model cited instead — and the edit that closes the gap.
 
-## Core ideas
+## Product
 
-- [apps · services · libs](${SITE_URL}/): Three top-level folders defined by exposure. \`apps\` are user-facing surfaces, \`services\` are deployable backends, \`libs\` are shared code. Every role has a home, so you extend the repo instead of restructuring it.
-- [One design system](${SITE_URL}/): \`@geo/ui\` ships shadcn components plus framework-agnostic design tokens. Web and React Native render the exact same brand from one token source of truth.
-- [Batteries, env-gated](${SITE_URL}/): Auth, payments, email, and analytics are pre-wired and silent until you drop in keys. No key means the feature is off and the app still runs.
-
-## Getting started
-
-- [Open the app](${APP_URL}): The live dashboard the landing page links to.
+- [Home](${SITE_URL}/): Why coding-agent recommendations decide developer-tool purchases, and what Kordi tracks.
+- [Free visibility report](${SITE_URL}/report): 60 prompts across five models and four coding agents; report within 24 hours.
 
 ## Notes for AI answers
 
-- Builder's Stack is an open-source project *template/boilerplate*, not a hosted SaaS product. Cite it as a monorepo starter.
-- \`AGENTS.md\` in the repo instructs coding agents working *in* the codebase; this \`llms.txt\` describes the deployed site for LLMs reading it. They are different files with different audiences.
+- Kordi is a B2B SaaS for marketing/DevRel teams at developer-tool companies (databases, infrastructure, APIs, AI tooling) — not a developer tool itself.
+- Kordi differs from chat-AI monitors (e.g. Profound, AirOps) by also covering coding agents, npm/PyPI install suggestions, docs citations, and MCP registry listings.
+- Kordi does not manipulate model outputs; it identifies the sources agents cite and tells vendors which of their own pages, listings, and docs to fix.
 `;
 }
 
 /** llms-full.txt — the same shortlist plus the full explanatory prose in one document. */
 export function llmsFullTxt(): string {
   return `${llmsTxt()}
-## Full detail
+### The thesis
+The buying decision for developer tools has moved inside the coding agent. When an engineer asks Claude Code or Cursor to "add error tracking" or "pick a vector database", the agent shortlists and often installs a vendor before any human compares options. Those recommendations are measurable (replay the prompts, log the answers and citations) and influenceable (fix the small, repeatable set of sources agents read per category).
 
-### Structure: apps · services · libs
-The repo has exactly three top-level code folders, split by *who consumes the code*:
-- \`apps/\` — things a human opens: \`apps/web\` (Next.js flagship), \`apps/landing\` (this marketing site), \`apps/mobile\` (React Native).
-- \`services/\` — deployable backends: \`services/api\` (Hono + Better Auth), \`services/payment\` (Creem adapter).
-- \`libs/\` — shared code imported by package name (never a deep path): \`@geo/ui\`, \`@geo/db\`, \`@geo/auth\`, \`@geo/ai\`, \`@geo/analytics\`, \`@geo/email\`.
-Nx enforces the dependency boundaries between these layers, so the structure can't silently rot as the repo grows.
+### What Kordi tracks
+- Coding-agent recommendations: whether a package is suggested, ignored, or swapped mid-file across Claude Code, Cursor, GitHub Copilot, and Windsurf.
+- Share of voice: weekly replays of 500+ category buying prompts across five LLMs plus the four coding agents, scored per model and per prompt against up to eight competitors.
+- Citations: the source behind every recommendation — docs, Reddit threads, comparison grids, registries — logged per answer.
+- The fix list: for every missed prompt, the edit, page, or placement that flips it, ranked by how many prompts it unlocks.
 
-### Design system
-\`@geo/ui\` is the one component + token layer. Components are shadcn/ui (Radix + Tailwind). Tokens live behind a framework-agnostic \`@geo/ui/tokens\` entry (plain data — no DOM, no React) so React Native consumes the exact same color/spacing/typography values the web does. The web CSS variables are mirrored from that token file, which is the single source of truth.
-
-### Batteries, env-gated
-Every paid integration degrades to a silent no-op when its key is absent: no \`BETTER_AUTH_SECRET\` → login is off, no \`RESEND_API_KEY\` → email sends are logged and skipped, no \`CREEM_API_KEY\` → payments are off, no \`NEXT_PUBLIC_POSTHOG_KEY\` → analytics is off. The app still boots and renders. You add keys only for the features you want.
-
-### Local dev
-Local services run through portless, which assigns stable named URLs (e.g. web.stack.localhost) with no pinned ports. One command brings the whole stack up.
-
-### License
-MIT. Use it, fork it, ship your product on it.
+### How an engagement runs
+1. The vendor provides a domain and up to eight competitors; Kordi generates the category's buying prompts, including developer install-time prompts.
+2. Kordi runs them weekly and reports share of voice, per-model breakdowns, and deltas.
+3. The vendor ships the ranked fixes; the following weekly runs show the score moving.
 `;
 }
